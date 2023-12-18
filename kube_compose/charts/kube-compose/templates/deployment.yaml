@@ -1,0 +1,125 @@
+{{- define "env" -}}
+env:
+- null
+{{- range $name, $value := .service.environment | default list }}
+{{- if ne $value nil }}
+- name: {{ $name | toJson }}
+  value: {{ $value | replace "$$" "$" | toJson }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{- define "ports" -}}
+ports:
+- null
+{{- range $portIndex, $port := .service.ports | default list }}
+- name: port-{{ $portIndex }}
+  containerPort: {{ $port.target }}
+  protocol: {{ upper $port.protocol }}
+{{- end -}}
+{{- end -}}
+
+{{- define "volumes" -}}
+volumes:
+- null
+{{- range $volume := .service.volumes | default list }}
+- name: {{ $volume.source }}
+  mountPath: {{ $volume.target }}
+  subPath: data
+{{- end }}
+{{- end -}}
+
+{{- range $name, $service := $.Values.services }}
+{{- with dict "name" $name "service" $service }}
+{{- $config := index .service "x-kubernetes" | default dict }}
+{{- if not ($config.exclude | default false) }}
+{{- $ports := slice (index ((include "ports" .) | fromYaml) "ports") 1 }}
+{{- $env := slice (index ((include "env" .) | fromYaml) "env") 1 }}
+{{- $volumes := slice (index ((include "volumes" .) | fromYaml) "volumes") 1 }}
+---
+apiVersion: apps/v1
+{{- if eq (.service.deploy | default dict).mode "global" }}
+kind: DaemonSet
+{{- else }}
+kind: Deployment
+{{- end }}
+metadata:
+  {{- if $config.labels }}
+  labels:
+{{ toYaml $config.labels | indent 4 }}
+  {{- end }}
+  {{- if $config.annotations }}
+  annotations:
+{{ toYaml $config.annotations | indent 4 }}
+  {{- end }}
+  name: {{ $name }}
+spec:
+  replicas: {{ (.service.deploy | default dict).replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+    spec:
+      containers:
+      - name: {{ $name }}
+        image: {{ .service.image | toJson }}
+        imagePullPolicy: {{ $config.imagePullPolicy | default "Always" | toJson }}
+        {{- if .service.command }}
+        command: {{ list (index .service.command 0) | toJson }}
+        args: {{ slice .service.command 1 | toJson }}
+        {{- end }}
+        {{- if $env }}
+        env:
+{{ toYaml $env | indent 8 }}
+        {{- end }}
+        {{- if $volumes }}
+        volumeMounts:
+{{ toYaml $volumes | indent 8 }}
+        {{- end }}
+        {{- if $ports }}
+        ports:
+{{ toYaml $ports | indent 8 }}
+        {{- end }}
+      dnsPolicy: {{ $config.dnsPolicy | default "ClusterFirst" }}
+      restartPolicy: {{ $config.restartPolicy | default "Always" }}
+      {{- if $volumes }}
+      volumes:
+      {{- range $vol := $volumes }}
+      {{- $volName := index $vol "name"}}
+      - name: {{ $volName }}
+        persistentVolumeClaim:
+          claimName: {{ $volName }}
+      {{- end }}
+      {{- end }}
+
+{{- if $ports }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  {{- if $config.labels }}
+  labels:
+{{ toYaml $config.labels | indent 4 }}
+  {{- end }}
+  {{- if $config.annotations }}
+  annotations:
+{{ toYaml $config.annotations | indent 4 }}
+  {{- end }}
+  name: {{ $name }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+  ports:
+    {{- range $ports }}
+    - protocol: {{ .protocol }}
+      port: {{ .containerPort }}
+      targetPort: {{ .containerPort }}
+    {{- end }}
+{{- end }}
+
+{{- end }}
+{{- end }}
+{{- end }}
