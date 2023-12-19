@@ -23,7 +23,7 @@ def init():
     docker_compose_config['x-kubernetes'] = {}
   release_config = docker_compose_config['x-kubernetes']
   if 'name' not in release_config:
-    release_config['name'] = click.prompt('Release Name', type=str)
+    release_config['name'] = click.prompt('Release Name', type=str, default=docker_compose_path.absolute().parent.name)
   if 'namespace' not in release_config:
     release_config['namespace'] = click.prompt('Release Namespace', type=str, default='default')
   #
