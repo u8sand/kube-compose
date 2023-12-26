@@ -14,3 +14,8 @@ def restart(service, *, namespace, kubectl, **_):
     *(('-n', namespace) if namespace else tuple()),
     f"deploy/{service}",
   ])
+  utils.run([
+    kubectl, 'rollout', 'status',
+    *(('-n', namespace) if namespace else tuple()),
+    f"deploy/{service}",
+  ])
