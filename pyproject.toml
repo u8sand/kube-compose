@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "kube-compose"
 version = "0.1.0"
-description = ""
+description = "An opinionated way of deploying docker-compose to kubernetes clusters by managing them with a helm chart."
 authors = ["Daniel Clarke <u8sand@gmail.com>"]
 readme = "README.md"
 
