@@ -83,10 +83,10 @@ def echo_table_via_pager(records):
 
 def require_kube_compose_release(fn):
   @functools.wraps(fn)
-  @require_binaries(docker_compose='docker-compose')
-  def wrapper(*, docker_compose, **kwargs):
+  @require_binaries(docker='docker')
+  def wrapper(*, docker, **kwargs):
     import yaml
-    docker_compose_config_raw = check_output([docker_compose, 'config'])
+    docker_compose_config_raw = check_output([docker, 'compose', 'config'])
     docker_compose_config = yaml.safe_load(docker_compose_config_raw)
     if 'x-kubernetes' not in docker_compose_config:
       raise click.ClickException('top-level `x-kubernetes` map with release `name` and `namespace` is required')
@@ -94,7 +94,7 @@ def require_kube_compose_release(fn):
     name = release_config['name']
     namespace = release_config.get('namespace')
     return fn(**dict(kwargs,
-      docker_compose=docker_compose,
+      docker=docker,
       docker_compose_config_raw=docker_compose_config_raw,
       docker_compose_config=docker_compose_config,
       release_config=release_config,
