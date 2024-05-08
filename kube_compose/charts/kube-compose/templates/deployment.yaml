@@ -2,9 +2,17 @@
 env:
 - null
 {{- range $name, $value := .service.environment | default list }}
-{{- if ne $value nil }}
+{{- if ne ($value | toJson) "null" }}
+{{- if typeIs "int" $name }}
+{{- $value_parsed := regexSplit "=" $value 2 }}
+{{- $name := first $value_parsed }}
+{{- $value := last $value_parsed }}
 - name: {{ $name | toJson }}
   value: {{ $value | replace "$$" "$" | toJson }}
+{{- else }}
+- name: {{ $name | toJson }}
+  value: {{ $value | replace "$$" "$" | toJson }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end -}}
@@ -13,7 +21,7 @@ env:
 ports:
 - null
 {{- range $portIndex, $port := .service.ports | default list }}
-- name: port-{{ $portIndex }}
+- name: {{ lower $port.protocol }}-{{ $port.target }}
   containerPort: {{ $port.target }}
   protocol: {{ upper $port.protocol }}
 {{- end -}}
@@ -29,6 +37,45 @@ volumes:
 {{- end }}
 {{- end -}}
 
+{{- define "template" -}}
+metadata:
+  labels:
+    app.kubernetes.io/name: {{ .name }}
+spec:
+  containers:
+  - name: {{ .name }}
+    image: {{ .service.image | toJson }}
+    imagePullPolicy: {{ .config.imagePullPolicy | default "Always" | toJson }}
+    {{- if .service.command }}
+    command: {{ list (index .service.command 0) | toJson }}
+    args: {{ slice .service.command 1 | toJson }}
+    {{- end }}
+    {{- if .env }}
+    env:
+{{ toYaml .env | indent 8 }}
+    {{- end }}
+    {{- if .volumes }}
+    volumeMounts:
+{{ toYaml .volumes | indent 8 }}
+    {{- end }}
+    {{- if .ports }}
+    ports:
+{{ toYaml .ports | indent 8 }}
+    {{- end }}
+  dnsPolicy: {{ .config.dnsPolicy | default "ClusterFirst" }}
+  restartPolicy: {{ .config.restartPolicy | default "Always" }}
+  {{- if .volumes }}
+  volumes:
+  {{- range $vol := .volumes }}
+  {{- $volName := index $vol "name"}}
+  - name: {{ $volName }}
+    persistentVolumeClaim:
+      claimName: {{ $volName }}
+  {{- end }}
+  {{- end }}
+{{- end -}}
+
+
 {{- range $name, $service := $.Values.services }}
 {{- with dict "name" $name "service" $service }}
 {{- $config := index .service "x-kubernetes" | default dict }}
@@ -36,9 +83,11 @@ volumes:
 {{- $ports := slice (index ((include "ports" .) | fromYaml) "ports") 1 }}
 {{- $env := slice (index ((include "env" .) | fromYaml) "env") 1 }}
 {{- $volumes := slice (index ((include "volumes" .) | fromYaml) "volumes") 1 }}
+{{ with merge . (dict "config" $config "ports" $ports "env" $env "volumes" $volumes) }}
 ---
+{{- if eq ($config.cron | default "") "" }}
 apiVersion: apps/v1
-{{- if eq (.service.deploy | default dict).mode "global" }}
+{{- if eq ((.service.deploy | default dict).mode | default "") "global" }}
 kind: DaemonSet
 {{- else }}
 kind: Deployment
@@ -59,41 +108,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
   template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: {{ $name }}
-    spec:
-      containers:
-      - name: {{ $name }}
-        image: {{ .service.image | toJson }}
-        imagePullPolicy: {{ $config.imagePullPolicy | default "Always" | toJson }}
-        {{- if .service.command }}
-        command: {{ list (index .service.command 0) | toJson }}
-        args: {{ slice .service.command 1 | toJson }}
-        {{- end }}
-        {{- if $env }}
-        env:
-{{ toYaml $env | indent 8 }}
-        {{- end }}
-        {{- if $volumes }}
-        volumeMounts:
-{{ toYaml $volumes | indent 8 }}
-        {{- end }}
-        {{- if $ports }}
-        ports:
-{{ toYaml $ports | indent 8 }}
-        {{- end }}
-      dnsPolicy: {{ $config.dnsPolicy | default "ClusterFirst" }}
-      restartPolicy: {{ $config.restartPolicy | default "Always" }}
-      {{- if $volumes }}
-      volumes:
-      {{- range $vol := $volumes }}
-      {{- $volName := index $vol "name"}}
-      - name: {{ $volName }}
-        persistentVolumeClaim:
-          claimName: {{ $volName }}
-      {{- end }}
-      {{- end }}
+{{ toYaml ((include "template" .) | fromYaml) | indent 4 }}
 
 {{- if $ports }}
 ---
@@ -114,12 +129,34 @@ spec:
     app.kubernetes.io/name: {{ $name }}
   ports:
     {{- range $ports }}
-    - protocol: {{ .protocol }}
+    - name: {{ .name }}
+      protocol: {{ .protocol }}
       port: {{ .containerPort }}
       targetPort: {{ .containerPort }}
     {{- end }}
 {{- end }}
 
+{{- else }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  {{- if $config.labels }}
+  labels:
+{{ toYaml $config.labels | indent 4 }}
+  {{- end }}
+  {{- if $config.annotations }}
+  annotations:
+{{ toYaml $config.annotations | indent 4 }}
+  {{- end }}
+  name: {{ $name }}
+spec:
+  schedule: {{ $config.cron }}
+  jobTemplate:
+    spec:
+      template:
+{{ toYaml ((include "template" .) | fromYaml) | indent 8 }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
