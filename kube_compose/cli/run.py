@@ -39,7 +39,7 @@ def run(*, service, args, stdin, tty, namespace, docker_compose_config, kubectl,
     overrides['spec']['volumes'] = []
     for volume in service_config['volumes']:
       from kube_compose.cli.volume.create import create
-      create(volume=volume)
+      create(volume=volume['source'])
       overrides['spec']['containers'][0]['volumeMounts'].append(
         {
           'mountPath': volume['target'],

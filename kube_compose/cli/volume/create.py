@@ -13,7 +13,7 @@ def _(**kwargs):
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
 def create(*, volume, docker_compose_config, namespace, kubectl, **_):
-  for volume, volume_config in ([volume, docker_compose_config['volumes'][volume]] if volume is not None else docker_compose_config.get('volumes', {}).items()):
+  for volume, volume_config in ([(volume, docker_compose_config['volumes'][volume],)] if volume is not None else docker_compose_config.get('volumes', {}).items()):
     volume_ext_config = volume_config.get('x-kubernetes', {})
     utils.run([
       kubectl, 'apply',
