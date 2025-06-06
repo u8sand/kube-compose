@@ -23,6 +23,7 @@ The CLI is intended to be easy to use for those familiar with docker-compose and
 - kubernetes cluster
 - kubectl
 - helm
+- docker-compose
 
 ## Installation
 ```bash
@@ -32,6 +33,16 @@ pip install kube-compose
 # verify install was successful
 kube-compose --help
 ```
+
+## CLI Usage with Docker
+```bash
+# Assuming your kubeconfig is at the default location ~/.kube/config
+alias kube-compose="docker run -v .:/work -v ~/.kube/config:/work/.kube/config -it u8sand/kube-compose"
+
+# verify install was successful
+kube-compose --help
+```
+
 
 ## End-to-end Example with K3D
 ```bash
