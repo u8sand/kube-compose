@@ -16,5 +16,5 @@ def inspect(*, volume, namespace, kubectl, **_):
     *kubectl, 'get',
     *(('-n', namespace) if namespace else tuple()),
     f"pvc/{volume}",
-    '-o', 'json',
+    '-o', 'yaml',
   ])
