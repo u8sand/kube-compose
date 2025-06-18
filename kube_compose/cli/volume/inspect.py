@@ -5,7 +5,7 @@ from kube_compose.cli.volume import volume
 @volume.command('inspect')
 @click.argument('volume', type=str, required=True)
 def _(**kwargs):
-  ''' Remove a kubernetes persistent volume
+  ''' Inspect a kubernetes persistent volume
   '''
   inspect(**kwargs)
 
