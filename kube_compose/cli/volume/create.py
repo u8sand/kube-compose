@@ -16,7 +16,7 @@ def create(*, volume, docker_compose_config, namespace, kubectl, **_):
   for volume, volume_config in ([(volume, docker_compose_config['volumes'][volume],)] if volume is not None else docker_compose_config.get('volumes', {}).items()):
     volume_ext_config = volume_config.get('x-kubernetes', {})
     utils.run([
-      kubectl, 'apply',
+      *kubectl, 'apply',
       *(('-n', namespace) if namespace else tuple()),
       '-f', '-',
     ], input=json.dumps({

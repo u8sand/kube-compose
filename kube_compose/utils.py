@@ -54,17 +54,18 @@ def check_output(ctx: click.Context, *args, **kwargs):
 def require_binaries(**required_binaries):
   ''' Ensure binaries are present, and inject the paths to them in kwargs
   Usage:
-  @require_binaries(curl_bin='curl')
+  @require_binaries(curl_bin='curl -s')
   def whats_my_ip(*, curl_bin):
-    return check_output([curl_bin, '-s', 'https://ifconfig.me']).decode()
+    return check_output([*curl_bin, 'https://ifconfig.me']).decode()
   '''
   def decorator(fn):
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
       from shutil import which
       binaries = {
-        arg: assert_defined(which(binary), f"{binary} command not found")
+        arg: [assert_defined(which(bin), f"{bin} command not found"), *args]
         for arg, binary in required_binaries.items()
+        for bin, *args in (binary if type(binary) == list else binary.split(' '),)
       }
       return fn(*args, **dict(binaries, **kwargs))
     return wrapper

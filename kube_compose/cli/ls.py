@@ -13,7 +13,7 @@ def ls(*, namespace, helm, **_):
     (release['name'], release['namespace'], release['revision'], release['updated'], release['status'])
     for release in json.loads(
       utils.check_output([
-        helm, 'list',
+        *helm, 'list',
         *(('-n', namespace) if namespace else ('-A',)),
         '-o', 'json',
       ])

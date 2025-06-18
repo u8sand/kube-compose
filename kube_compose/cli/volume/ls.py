@@ -13,7 +13,7 @@ def _(**kwargs):
 @utils.require_kube_compose_release
 def ls(*, namespace, kubectl, **_):
   utils.run([
-    kubectl, 'get',
+    *kubectl, 'get',
     *(('-n', namespace) if namespace else tuple()),
     'pvc',
   ])

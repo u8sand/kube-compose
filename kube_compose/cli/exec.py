@@ -13,7 +13,7 @@ def exec(service, args, *, stdin, tty, namespace, kubectl, **_):
   ''' Like `docker-compose exec` but for the kubernetes deployed resources
   '''
   utils.run([
-    kubectl, 'exec',
+    *kubectl, 'exec',
     *(('-n', namespace) if namespace else tuple()),
     *(('-i',) if stdin else tuple()),
     *(('-t',) if tty else tuple()),

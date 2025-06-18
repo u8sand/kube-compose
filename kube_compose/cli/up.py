@@ -11,10 +11,10 @@ def up(*, helm, kubectl, name, namespace, docker_compose_config_raw, docker_comp
   from kube_compose.cli.volume.create import create
   create(volume=None)
   if subprocess.call([
-    helm, 'status', *(('-n', namespace) if namespace else tuple()), name
+    *helm, 'status', *(('-n', namespace) if namespace else tuple()), name
   ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
     utils.run([
-      helm, 'upgrade',
+      *helm, 'upgrade',
       *(('-n', namespace) if namespace else tuple()),
       name,
       utils.helm_chart,
@@ -22,7 +22,7 @@ def up(*, helm, kubectl, name, namespace, docker_compose_config_raw, docker_comp
     ], input=docker_compose_config_raw)
   else:
     utils.run([
-      helm, 'install',
+      *helm, 'install',
       *(('-n', namespace) if namespace else tuple()),
       name,
       utils.helm_chart,
@@ -30,7 +30,7 @@ def up(*, helm, kubectl, name, namespace, docker_compose_config_raw, docker_comp
     ], input=docker_compose_config_raw)
   #
   utils.run([
-    kubectl, 'rollout', 'status',
+    *kubectl, 'rollout', 'status',
     *(('-n', namespace) if namespace else tuple()),
     *[f"deploy/{service}" for service in docker_compose_config.get('services', {})],
   ])

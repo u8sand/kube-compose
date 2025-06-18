@@ -15,7 +15,7 @@ def logs(service, args, *, previous, follow, tail, timestamps, kubectl, namespac
   ''' Like `docker-compose logs` but for the kubernetes deployed resources
   '''
   utils.run([
-    kubectl, 'logs',
+    *kubectl, 'logs',
     *(('-p',) if previous else tuple()),
     *(('-f',) if follow else tuple()),
     *((f"--tail={tail}",) if tail != -1 else tuple()),

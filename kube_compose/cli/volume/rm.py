@@ -14,7 +14,7 @@ def _(**kwargs):
 def rm(*, volume, docker_compose_config, namespace, kubectl, **_):
   for volume in ([volume] if volume is not None else docker_compose_config.get('volumes', {}).keys()):
     utils.run([
-      kubectl, 'delete',
+      *kubectl, 'delete',
       *(('-n', namespace) if namespace else tuple()),
       f"pvc/{volume}",
     ])

@@ -11,12 +11,12 @@ def restart(service, *, namespace, kubectl, docker_compose_config, **_):
   '''
   services = [service] if service is not None else docker_compose_config.get('services', {}).keys()
   utils.run([
-    kubectl, 'rollout', 'restart',
+    *kubectl, 'rollout', 'restart',
     *(('-n', namespace) if namespace else tuple()),
     *[f"deploy/{service}" for service in services],
   ])
   utils.run([
-    kubectl, 'rollout', 'status',
+    *kubectl, 'rollout', 'status',
     *(('-n', namespace) if namespace else tuple()),
     *[f"deploy/{service}" for service in services],
   ])

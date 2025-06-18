@@ -56,7 +56,7 @@ def run(*, service, args, stdin, tty, namespace, docker_compose_config, kubectl,
       )
   #
   utils.run([
-    kubectl, 'run',
+    *kubectl, 'run',
       name,
       *(('-n', namespace) if namespace else tuple()),
       '--attach',

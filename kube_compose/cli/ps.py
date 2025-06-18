@@ -8,7 +8,7 @@ def ps(*, name, namespace, helm, **_):
   ''' Like `docker-compose ps` but show status of the kubernetes deployed resource
   '''
   utils.run([
-    helm, 'status',
+    *helm, 'status',
     *(('-n', namespace) if namespace else tuple()),
     name,
     '--show-resources',

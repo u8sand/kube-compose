@@ -8,7 +8,7 @@ def config(*, helm, name, namespace, **_):
   ''' Like `docker-compose config` but shows the kubernetes deployed config
   '''
   utils.run([
-    helm, 'get', 'values',
+    *helm, 'get', 'values',
     *(('-n', namespace,) if namespace else tuple()),
     name,
   ])

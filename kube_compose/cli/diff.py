@@ -21,5 +21,5 @@ def diff(*, name, namespace, docker_compose_config, helm, diff, **_):
     with (tmpdir / 'remote.docker-compose.yaml').open('w') as fw:
       yaml.dump(helm_release_yaml, fw, sort_keys=True)
       utils.run([
-        diff, '-Naur', str(tmpdir / 'remote.docker-compose.yaml'), str(tmpdir / 'local.docker-compose.yaml')
+        *diff, '-Naur', str(tmpdir / 'remote.docker-compose.yaml'), str(tmpdir / 'local.docker-compose.yaml')
       ])

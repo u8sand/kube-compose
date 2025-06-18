@@ -10,7 +10,7 @@ def down(*, helm, name, namespace, volumes, **_):
   ''' Like `docker-compose down` but stops the kubernetes deployed resources
   '''
   utils.run([
-    helm, 'uninstall',
+    *helm, 'uninstall',
     *(('-n', namespace) if namespace else tuple()),
     name,
   ])

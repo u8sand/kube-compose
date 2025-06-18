@@ -10,16 +10,20 @@ from kube_compose.cli import cli
 def cp(*, args, namespace, kubectl, **_):
   ''' Like `docker-compose cp` but for the kubernetes deployed resources
   '''
-  if not namespace: namespace = 'default'
   args_ = []
   for arg in args:
     if ':' in arg:
       service, _, path = arg.partition(':')
       # find the pod for the specified docker-compose service
       pod = utils.check_output([
-        kubectl, 'get', 'pod', '-n', namespace or 'default', '-l', f"app.kubernetes.io/name={service}", '-o', 'jsonpath="{.items[0][\'metadata.name\']}"'
+        *kubectl, 'get', 'pod',
+        *(['-n', namespace] if namespace else []),
+        '-l', f"app.kubernetes.io/name={service}", '-o', 'jsonpath="{.items[0][\'metadata.name\']}"'
       ])
-      args_.append(f"{namespace}/{json.loads(pod.decode())}:{path}")
+      args_.append(
+        (f"{namespace}/" if namespace else '')
+        + f"{json.loads(pod.decode())}:{path}"
+      )
     else:
       args_.append(arg)
-  utils.run([kubectl, 'cp', *args_])
+  utils.run([*kubectl, 'cp', *args_])
