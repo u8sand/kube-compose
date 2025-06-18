@@ -53,29 +53,9 @@ k3d cluster create -a1 -p "80:80@loadbalancer" -p "443:443@loadbalancer"
 helm repo add maayanlab https://maayanlab.github.io/helm-charts
 helm install kubernetes-auto-ingress maayanlab/kubernetes-auto-ingress --set ingressClassName=traefik
 
-# create the docker-compose.yaml
-cat > docker-compose.yaml << EOF
-version: '3'
-x-kubernetes:
-  # this is the helm chart release name and namespace
-  name: test
-  namespace: default
-services:
-  # a deployment is created with this name
-  test-web:
-    image: nginx:latest
-    ports:
-      # a service is created exposing this port
-      - 80
-    x-kubernetes:
-      # these are the kubernetes annotations added to the deployment
-      annotations:
-        # this annotation causes a ingress to be created for the deployment
-        maayanlab.cloud/ingress: http://localhost
-EOF
-
+# 
 # start the docker-compose service(s) on the kubernetes cluster
-kube-compose up
+kube-compose -f tests/units/simple/docker-compose.yaml up
 
 # verify it's running at http://localhost
 ```
