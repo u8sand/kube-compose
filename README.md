@@ -67,9 +67,50 @@ k3d cluster create -a1 -p "80:80@loadbalancer" -p "443:443@loadbalancer"
 helm repo add maayanlab https://maayanlab.github.io/helm-charts
 helm install kubernetes-auto-ingress maayanlab/kubernetes-auto-ingress --set ingressClassName=traefik
 
-# 
-# start the docker-compose service(s) on the kubernetes cluster
-kube-compose -f tests/units/simple/docker-compose.yaml up
+# with one of the unit tests
+cd tests/units/simple
 
-# verify it's running at http://localhost
+# start the docker-compose service(s) on the kubernetes cluster
+kube-compose up
+# check the status of the kubernetes resources
+kube-compose ps
+# check logs of a service
+kube-compose logs test-web
+# get into the service container
+kube-compose exec -it test-web /bin/sh
+# restart a service
+kube-compose restart test-web
+# see top processes running on the service
+kube-compose top test-web
+# see cpu/memory being used by the service
+kube-compose stats test-web
+# see any events that may have occurred for the service
+kube-compose events test-web
+# stop the service temporarily
+kube-compose stop test-web
+# start it back up
+kube-compose start test-web
+# scale the service up
+kube-compose scale test-web=2
+
+# we can see helm charts (like kube-compose deployed things) deployed to the cluster with
+kube-compose ls
+# we can get the actual deployment kubernetes would use with
+kube-compose template
+# we can see what revision we're at/when it was updated with
+kube-compose history
+kube-compose status
+# we can rollback if a change we made was bad with
+kube-compose rollback optional-revision-number
+# we can get information like the docker-compose.yaml that was deployed with
+kube-compose get values
+# we can diff our local docker-compose with that one with
+kube-compose diff
+# we can access cluster services locally with port-forward hostport:containerport
+kube-compose port-forward test-web 8080:80
+# we can manage persistent volumes with the volume subcommand
+kube-compose volume 
+
+# remove it from the cluster
+kube-compose down
 ```
