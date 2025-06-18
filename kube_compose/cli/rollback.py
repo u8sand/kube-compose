@@ -6,7 +6,7 @@ from kube_compose import utils
 @utils.require_binaries(helm='helm')
 @utils.require_kube_compose_release
 @click.argument('revision', type=int, required=False)
-def history(revision, *, helm, name, namespace, **_):
+def rollback(revision, *, helm, name, namespace, **_):
   ''' Alias for `helm rollback [revision]`
   '''
   utils.run([
