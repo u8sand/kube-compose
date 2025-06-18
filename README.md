@@ -100,16 +100,20 @@ kube-compose template
 # we can see what revision we're at/when it was updated with
 kube-compose history
 kube-compose status
-# we can rollback if a change we made was bad with
-kube-compose rollback optional-revision-number
+# we can rollback (with optional version number) if a change we made was bad with
+kube-compose rollback
 # we can get information like the docker-compose.yaml that was deployed with
 kube-compose get values
-# we can diff our local docker-compose with that one with
-kube-compose diff
 # we can access cluster services locally with port-forward hostport:containerport
 kube-compose port-forward test-web 8080:80
 # we can manage persistent volumes with the volume subcommand
-kube-compose volume 
+kube-compose volume
+# we can version image in the docker-compose
+kube-compose version test-web 1.0.0
+# we can diff our local docker-compose with the one that is deployed
+kube-compose diff
+# let's revert that change
+kube-compose version test-web latest
 
 # remove it from the cluster
 kube-compose down
