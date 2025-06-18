@@ -30,6 +30,7 @@ The CLI is intended to be easy to use for those familiar with docker-compose and
     - `kube-compose volume create [VOLUME]` => create the claim(s)
     - `kube-compose volume rm [VOLUME]` => delete the claim(s)
   - `kube-compose diff` => `diff -Naur <(helm get values) <(docker-compose config)`
+  - `kube-compose drift` => `helm template | kubectl diff -f -`
   - `kube-compose version SERVICE [<newversion> | major | minor | patch]` => like npm version but for services in the docker-compose.yaml
   - `kube-compose port-forward SERVICE local:remote`
 
@@ -112,6 +113,8 @@ kube-compose volume ls
 kube-compose version test-web 1.0.0
 # we can diff our local docker-compose with the one that is deployed
 kube-compose diff
+# we can use drift to see if the deployment spec has been modified outside of kube-compose
+kube-compose drift
 # let's revert that change
 kube-compose version test-web latest
 
