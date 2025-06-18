@@ -9,6 +9,7 @@ from kube_compose import utils
 @click.argument('args', nargs=-1, type=str)
 def scale(args, *, namespace, kubectl, **_):
   ''' Like `docker-compose scale` but effects the kubernetes deployed resources
+  Arguments are expected to be like: `service-name=replicas`
   '''
   service_replicas = []
   for arg in args:
@@ -19,5 +20,5 @@ def scale(args, *, namespace, kubectl, **_):
       *kubectl, 'scale',
       *(('-n', namespace) if namespace else tuple()),
       f"--replicas={replicas}",
-      *[f"deploy/{svc}" for svc in svcs],
+      *[f"deploy/{svc}" for _, svc in svcs],
     ])
