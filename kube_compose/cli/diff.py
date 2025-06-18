@@ -10,7 +10,7 @@ from kube_compose import utils
 def diff(*, name, namespace, docker_compose_config, helm, diff, **_):
   ''' Compare the local docker-compose with the one deployed to kubernetes
   '''
-  helm_release_yaml = yaml.safe_load(utils.check_output([helm, 'get', 'values', *(('-n', namespace,) if namespace else tuple()), name]))
+  helm_release_yaml = yaml.safe_load(utils.check_output([*helm, 'get', 'values', *(('-n', namespace,) if namespace else tuple()), name]))
   del helm_release_yaml['USER-SUPPLIED VALUES']
   #
   with tempfile.TemporaryDirectory() as tmpdir:
