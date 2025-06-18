@@ -122,5 +122,5 @@ kube-compose version test-web latest
 kube-compose down -v
 
 # remove test cluster
-k3d cluster create
+k3d cluster delete
 ```
