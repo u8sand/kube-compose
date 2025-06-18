@@ -15,7 +15,7 @@ services:
         # this annotation causes a ingress to be created for the deployment
         maayanlab.cloud/ingress: http://localhost
     volumes:
-      - test-volume:/data
+    - test-volume:/data
 
 volumes:
   test-volume:
