@@ -1,6 +1,6 @@
-import yaml
 import click
 import pathlib
+from ruamel.yaml import YAML
 from kube_compose.cli import cli
 from kube_compose import utils
 
@@ -8,13 +8,14 @@ from kube_compose import utils
 def init():
   ''' Initialize a kube-compose configuration
   '''
+  yaml = YAML()
   try:
     docker_compose_path = utils.locate_docker_compose_path()
   except FileNotFoundError:
     docker_compose_path = pathlib.Path('docker-compose.yaml')
   try:
     with docker_compose_path.open('r') as fr:
-      docker_compose_config = yaml.safe_load(fr)
+      docker_compose_config = yaml.load(fr)
   except FileNotFoundError:
     docker_compose_config = {
       'services': {},
@@ -29,4 +30,4 @@ def init():
     release_config['namespace'] = click.prompt('Release Namespace', type=str, default='default')
   #
   with docker_compose_path.open('w') as fw:
-    yaml.safe_dump(docker_compose_config, fw)
+    yaml.dump(docker_compose_config, fw)

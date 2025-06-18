@@ -1,7 +1,6 @@
 import re
-import yaml
 import click
-import pathlib
+from ruamel.yaml import YAML
 from kube_compose.cli import cli
 from kube_compose import utils
 
@@ -11,11 +10,12 @@ from kube_compose import utils
 def version(service, newversion):
   ''' Get or set the version of a service in docker-compose.yaml
   '''
-  docker_compose_path = utils.pathlib_coalesce('docker-compose.yaml', 'docker-compose.yml')
+  yaml = YAML()
+  docker_compose_path = utils.locate_docker_compose_path()
   with docker_compose_path.open('r') as fr:
-    docker_compose_yaml = yaml.safe_load(fr)
+    docker_compose_config = yaml.load(fr)
   #
-  service = docker_compose_yaml['services'][service]
+  service = docker_compose_config['services'][service]
   container, sep, version = service['image'].partition(':')
   if not sep:
     sep = ':'
@@ -38,4 +38,4 @@ def version(service, newversion):
   elif newversion:
     service['image'] = f"{container}{sep}{newversion}"
   with docker_compose_path.open('w') as fw:
-    yaml.dump(docker_compose_yaml, fw, sort_keys=False)
+    yaml.dump(docker_compose_config, fw)
