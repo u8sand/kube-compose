@@ -12,12 +12,26 @@ The CLI is intended to be easy to use for those familiar with docker-compose and
   - `kube-compose logs SERVICE` => `kubectl logs`
   - `kube-compose exec SERVICE` => `kubectl exec`
   - `kube-compose restart SERVICE` => `kubectl rollout restart`
+  - `kube-compose top SERVICE` => `kubectl exec pod -- cat /proc/*/stats`
+  - `kube-compose stats SERVICE` => `kubectl top pod`
+  - `kube-compose events SERVICE` => `kubectl events`
+  - `kube-compose start SERVICE` => `kubectl scale --replicas={compose_defined}`
+  - `kube-compose scale SERVICE` => `kubectl scale --replicas={user_specified}`
+  - `kube-compose stop SERVICE` => `kubectl scale --replicas=0`
+- helm-like features
+  - `kube-compose ls` => `helm list`
+  - `kube-compose template` => `helm template`
+  - `kube-compose history` => `helm history`
+  - `kube-compose status` => `helm status`
+  - `kube-compose get WHAT` => `helm get WHAT`
+  - `kube-compose rollback REVISION` => `helm rollback REVISION`
 - additional features
   - `kube-compose volume ...` => manage docker-compose defined volumes as persistent volume claims
     - `kube-compose volume create [VOLUME]` => create the claim(s)
     - `kube-compose volume rm [VOLUME]` => delete the claim(s)
   - `kube-compose diff` => `diff -Naur <(helm get values) <(docker-compose config)`
   - `kube-compose version SERVICE [<newversion> | major | minor | patch]` => like npm version but for services in the docker-compose.yaml
+  - `kube-compose port-forward SERVICE local:remote`
 
 ## Pre-requisites
 - kubernetes cluster
