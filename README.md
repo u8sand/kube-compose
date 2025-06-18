@@ -107,7 +107,7 @@ kube-compose get values
 # we can access cluster services locally with port-forward hostport:containerport
 kube-compose port-forward test-web 8080:80
 # we can manage persistent volumes with the volume subcommand
-kube-compose volume
+kube-compose volume ls
 # we can version image in the docker-compose
 kube-compose version test-web 1.0.0
 # we can diff our local docker-compose with the one that is deployed
@@ -115,8 +115,8 @@ kube-compose diff
 # let's revert that change
 kube-compose version test-web latest
 
-# remove it from the cluster
-kube-compose down
+# remove it from the cluster (with volumes, otherwise they stay)
+kube-compose down -v
 
 # remove test cluster
 k3d cluster create
