@@ -16,6 +16,20 @@ def pathlib_coalesce(*paths):
   if not paths: raise RuntimeError('No paths to check')
   else: raise FileNotFoundError(paths[0])
 
+def set_group_config(fn):
+  @click.pass_context
+  def wrapper(ctx, *args, **kwargs):
+    ctx.ensure_object(dict)
+    ctx.obj.update(**kwargs)
+    return ctx.invoke(fn, *args, **kwargs)
+  return functools.update_wrapper(wrapper, fn)
+
+def require_group_config(fn):
+  @click.pass_context
+  def wrapper(ctx: click.Context, *args, **kwargs):
+    return ctx.invoke(fn, *args, **dict(ctx.obj, **kwargs))
+  return functools.update_wrapper(wrapper, fn)
+
 @click.pass_context
 def run(ctx: click.Context, *args, input=None, **kwargs):
   ''' Similar to subprocess.run but
@@ -82,20 +96,25 @@ def echo_table_via_pager(records):
     for record in records
   ])
 
+@require_group_config
+def locate_docker_compose_path(*, file, **_):
+  docker_compose_path = pathlib.Path(file) if file else pathlib_coalesce('docker-compose.yaml', 'docker-compose.yml')
+  return docker_compose_path
+
 def require_kube_compose_release(fn):
   @functools.wraps(fn)
-  @require_binaries(docker='docker')
-  def wrapper(*, docker, **kwargs):
+  @require_binaries(docker_compose='docker compose')
+  def wrapper(*, docker_compose, **kwargs):
     import yaml
-    docker_compose_config_raw = check_output([docker, 'compose', 'config'])
+    docker_compose_config_raw = check_output([*docker_compose, '-f', str(locate_docker_compose_path()), 'config'])
     docker_compose_config = yaml.safe_load(docker_compose_config_raw)
-    if 'x-kubernetes' not in docker_compose_config:
-      raise click.ClickException('top-level `x-kubernetes` map with release `name` and `namespace` is required')
+    if 'x-kubernetes' not in docker_compose_config or not docker_compose_config.get('name'):
+      raise click.ClickException('top-level `x-kubernetes` map with release `name` is required')
     release_config = docker_compose_config['x-kubernetes']
     name = release_config['name']
     namespace = release_config.get('namespace')
     return fn(**dict(kwargs,
-      docker=docker,
+      docker_compose=docker_compose,
       docker_compose_config_raw=docker_compose_config_raw,
       docker_compose_config=docker_compose_config,
       release_config=release_config,

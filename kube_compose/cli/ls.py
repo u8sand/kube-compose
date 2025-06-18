@@ -1,10 +1,11 @@
+import click
 import json
 from kube_compose.cli import cli
 from kube_compose import utils
 
 @cli.command()
+@click.option('-n', '--namespace', help='The namespace to restrict ls to')
 @utils.require_binaries(helm='helm')
-@utils.require_kube_compose_release
 def ls(*, namespace, helm, **_):
   ''' Like `docker-compose ls` but shows the docker-compose releases
   '''

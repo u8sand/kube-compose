@@ -8,16 +8,17 @@ from kube_compose import utils
 def init():
   ''' Initialize a kube-compose configuration
   '''
-  try: docker_compose_path = utils.pathlib_coalesce('docker-compose.yaml', 'docker-compose.yml')
+  try:
+    docker_compose_path = utils.locate_docker_compose_path()
   except FileNotFoundError:
     docker_compose_path = pathlib.Path('docker-compose.yaml')
-    docker_compose_config = {
-      'version': '3',
-      'services': {},
-    }
-  else:
+  try:
     with docker_compose_path.open('r') as fr:
       docker_compose_config = yaml.safe_load(fr)
+  except FileNotFoundError:
+    docker_compose_config = {
+      'services': {},
+    }
   #
   if 'x-kubernetes' not in docker_compose_config:
     docker_compose_config['x-kubernetes'] = {}
