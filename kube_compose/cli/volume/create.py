@@ -12,9 +12,8 @@ def create_volume_spec(*, volume, docker_compose_config, **_):
       'kind': 'PersistentVolumeClaim',
       'metadata': {
         'name': volume,
-        'labels': {
-          'app.kubernetes.io/managed-by': 'kube-compose',
-        },
+        'labels': dict({'app.kubernetes.io/managed-by': 'kube-compose'}, **volume_ext_config.get('labels', {})),
+        'annotations': volume_ext_config.get('annotations', {}),
       },
       'spec': {
         'accessModes': [volume_ext_config.get('mode', 'ReadWriteOnce')],
