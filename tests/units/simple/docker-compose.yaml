@@ -6,6 +6,8 @@ services:
   # a deployment is created with this name
   test-web:
     image: nginx:latest
+    pull_policy: "missing"
+    restart: "unless-stopped"
     ports:
     # a service is created exposing this port
     - 80
