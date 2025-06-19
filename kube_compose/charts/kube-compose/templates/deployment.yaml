@@ -37,6 +37,16 @@ volumes:
 {{- end }}
 {{- end -}}
 
+{{- define "configs" -}}
+configs:
+- null
+{{- range $volume := .service.configs | default list }}
+- name: {{ $volume.source }}
+  mountPath: {{ $volume.target }}
+  subPath: content
+{{- end }}
+{{- end -}}
+
 {{- define "template" -}}
 metadata:
   labels:
@@ -54,9 +64,14 @@ spec:
     env:
 {{ toYaml .env | indent 8 }}
     {{- end }}
-    {{- if .volumes }}
+    {{- if or .volumes .configs }}
     volumeMounts:
+    {{- if .volumes }}
 {{ toYaml .volumes | indent 8 }}
+    {{- end }}
+    {{- if .configs }}
+{{ toYaml .configs | indent 8 }}
+    {{- end }}
     {{- end }}
     {{- if .ports }}
     ports:
@@ -64,13 +79,23 @@ spec:
     {{- end }}
   dnsPolicy: {{ .config.dnsPolicy | default "ClusterFirst" }}
   restartPolicy: {{ .config.restartPolicy | default "Always" }}
-  {{- if .volumes }}
+  {{- if or .volumes .configs }}
   volumes:
+  {{- if .volumes }}
   {{- range $vol := .volumes }}
-  {{- $volName := index $vol "name"}}
+  {{- $volName := index $vol "name" }}
   - name: {{ $volName }}
     persistentVolumeClaim:
       claimName: {{ $volName }}
+  {{- end }}
+  {{- end }}
+  {{- if .configs }}
+  {{- range $vol := .configs }}
+  {{- $volName := index $vol "name" }}
+  - name: {{ $volName }}
+    configMap:
+      name: {{ $volName }}
+  {{- end }}
   {{- end }}
   {{- end }}
 {{- end -}}
@@ -83,7 +108,8 @@ spec:
 {{- $ports := slice (index ((include "ports" .) | fromYaml) "ports") 1 }}
 {{- $env := slice (index ((include "env" .) | fromYaml) "env") 1 }}
 {{- $volumes := slice (index ((include "volumes" .) | fromYaml) "volumes") 1 }}
-{{ with merge . (dict "config" $config "ports" $ports "env" $env "volumes" $volumes) }}
+{{- $configs := slice (index ((include "configs" .) | fromYaml) "configs") 1 }}
+{{ with merge . (dict "config" $config "ports" $ports "env" $env "volumes" $volumes "configs" $configs) }}
 ---
 {{- if eq ($config.cron | default "") "" }}
 apiVersion: apps/v1

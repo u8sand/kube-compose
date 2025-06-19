@@ -16,8 +16,17 @@ services:
         maayanlab.cloud/ingress: http://localhost
     volumes:
     - test-volume:/data
+    configs:
+    - source: test-config
+      target: /usr/share/nginx/html/index.html
 
 volumes:
   test-volume:
     x-kubernetes:
       class: local-path
+
+configs:
+  test-config:
+    file: index.html
+    # content: |
+    #   <html><body>Hello World!</body></html>

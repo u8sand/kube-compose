@@ -8,8 +8,10 @@ def _(**_):
   ''' Alias for `helm template [release]`
   '''
   from kube_compose.cli.volume.template import template as volume_create_template
+  from kube_compose.cli.configmap.template import template as configmap_create_template
   yaml.dump_all([
     *volume_create_template(volume=None),
+    *configmap_create_template(configmap=None),
     *template(),
   ], sys.stdout)
 
