@@ -13,7 +13,7 @@ def template(*, volume, docker_compose_config, namespace, kubectl, **_):
     docker_compose_config=docker_compose_config,
     kubectl=kubectl,
   )
-  if not volume_specs: return
+  if not volume_specs: return []
   # use kubectl to fill-in defaults/validate
   templ = yaml.safe_load(utils.check_output([
     *kubectl, 'apply',
