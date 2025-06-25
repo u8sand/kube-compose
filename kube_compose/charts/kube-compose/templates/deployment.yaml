@@ -35,6 +35,10 @@ volumes:
   mountPath: {{ $volume.target }}
   subPath: data
 {{- end }}
+{{- if .service.shm_size }}
+- name: shm
+  mountPath: /dev/shm
+{{- end }}
 {{- end -}}
 
 {{- define "configs" -}}
@@ -89,6 +93,30 @@ spec:
     ports:
 {{ toYaml .ports | indent 8 }}
     {{- end }}
+    {{- if (.service.deploy | default dict).resources }}
+    resources:
+      {{- if .service.deploy.resources.limits }}
+      limits:
+        {{- if .service.deploy.resources.limits.cpus }}
+        cpu: {{ .service.deploy.resources.limits.cpus }}
+        {{- end }}
+        {{- if .service.deploy.resources.limits.memory }}
+        memory: {{ div (div .service.deploy.resources.limits.memory 1024) 1024 }}Mi
+        {{- end }}
+      {{- end }}
+      {{- if .service.deploy.resources.reservations }}
+      requests:
+        {{- if .service.deploy.resources.reservations.cpus }}
+        cpu: {{ .service.deploy.resources.reservations.cpus }}
+        {{- end }}
+        {{- if .service.deploy.resources.reservations.memory }}
+        memory: {{ div (div .service.deploy.resources.reservations.memory 1024) 1024 }}Mi
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- if .x_kubernetes.priorityClassName }}
+  priorityClassName: {{ .x_kubernetes.priorityClassName | toJson }}
+  {{- end }}
   dnsPolicy: {{ .x_kubernetes.dnsPolicy | default "ClusterFirst" }}
   {{- if .x_kubernetes.restartPolicy }}
   restartPolicy: {{ .x_kubernetes.restartPolicy }}
@@ -106,11 +134,17 @@ spec:
   {{- if or .volumes .configs }}
   volumes:
   {{- if .volumes }}
-  {{- range $vol := .volumes }}
-  {{- $volName := index $vol "name" }}
+  {{- range $vol := .service.volumes }}
+  {{- $volName := index $vol "source" }}
   - name: {{ $volName }}
     persistentVolumeClaim:
       claimName: {{ $volName }}
+  {{- end }}
+  {{- if .service.shm_size }}
+  - name: shm
+    emptyDir:
+      medium: MemoryAdd commentMore actions
+      sizeLimit: {{ div (div .service.shm_size 1024) 1024 }}Mi
   {{- end }}
   {{- end }}
   {{- if .configs }}
@@ -154,6 +188,10 @@ metadata:
   name: {{ $name }}
 spec:
   replicas: {{ (.service.deploy | default dict).replicas | default 1 }}
+  {{- if $x_kubernetes.strategy }}
+  strategy:
+{{ toYaml $x_kubernetes.strategy | indent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
