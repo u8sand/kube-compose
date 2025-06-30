@@ -251,3 +251,9 @@ spec:
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{- if (index $.Values "x-kubernetes" | default dict).apply }}
+{{- $x_kubernetes := index $.Values "x-kubernetes" }}
+---
+{{ $x_kubernetes.apply }}
+{{- end }}

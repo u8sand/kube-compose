@@ -2,6 +2,12 @@ x-kubernetes:
   # this is the helm chart release name and namespace
   name: test
   namespace: default
+  # arbitrary, additional kubeconfig data
+  apply: |
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: default
 services:
   # a deployment is created with this name
   test-web:
