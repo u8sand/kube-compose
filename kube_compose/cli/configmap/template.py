@@ -7,9 +7,10 @@ from kube_compose.cli.configmap.create import create_configmap_spec
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def template(*, configmap, docker_compose_config, namespace, kubectl, **_):
+def template(*, configmap, docker_compose_path, docker_compose_config, namespace, kubectl, **_):
   configmap_specs = create_configmap_spec(
     configmap=configmap,
+    docker_compose_path=docker_compose_path,
     docker_compose_config=docker_compose_config,
     kubectl=kubectl,
   )
@@ -23,6 +24,7 @@ def template(*, configmap, docker_compose_config, namespace, kubectl, **_):
     '-f', '-',
   ], input=yaml.dump_all(create_configmap_spec(
     configmap=configmap,
+    docker_compose_path=docker_compose_path,
     docker_compose_config=docker_compose_config,
     kubectl=kubectl,
   )).encode()))

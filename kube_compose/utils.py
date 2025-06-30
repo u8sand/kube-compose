@@ -106,7 +106,8 @@ def require_kube_compose_release(fn):
   @require_binaries(docker_compose='docker compose')
   def wrapper(*, docker_compose, **kwargs):
     import yaml
-    docker_compose_config_raw = check_output([*docker_compose, '-f', str(locate_docker_compose_path()), 'config'])
+    docker_compose_path = locate_docker_compose_path()
+    docker_compose_config_raw = check_output([*docker_compose, '-f', str(docker_compose_path), 'config', '--no-path-resolution'])
     docker_compose_config = yaml.safe_load(docker_compose_config_raw)
     if 'x-kubernetes' not in docker_compose_config or not docker_compose_config.get('name'):
       raise click.ClickException('top-level `x-kubernetes` map with release `name` is required')
@@ -115,6 +116,7 @@ def require_kube_compose_release(fn):
     namespace = release_config.get('namespace')
     return fn(**dict(kwargs,
       docker_compose=docker_compose,
+      docker_compose_path=docker_compose_path,
       docker_compose_config_raw=docker_compose_config_raw,
       docker_compose_config=docker_compose_config,
       release_config=release_config,

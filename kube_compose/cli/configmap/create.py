@@ -1,11 +1,10 @@
 import os
 import yaml
 import click
-import pathlib
 from kube_compose import utils
 from kube_compose.cli.configmap import configmap
 
-def create_configmap_spec(*, configmap, docker_compose_config, **_):
+def create_configmap_spec(*, configmap, docker_compose_path, docker_compose_config, **_):
   configmap_specs = []
   for config, config_config in ([(config, docker_compose_config['configs'][configmap],)] if configmap is not None else docker_compose_config.get('configs', {}).items()):
     config_ext_config = config_config.get('x-kubernetes', {})
@@ -22,7 +21,7 @@ def create_configmap_spec(*, configmap, docker_compose_config, **_):
     if 'content' in config_config:
       configmap_spec['data']['content'] = config_config['content']
     elif 'file' in config_config:
-      configmap_spec['data']['content'] = pathlib.Path(config_config['file']).read_text()
+      configmap_spec['data']['content'] = (docker_compose_path.parent / config_config['file']).read_text()
     elif 'environment' in config_config:
       configmap_spec['data']['content'] = os.environ[config_config['environment']]
     elif 'external' in config_config:
@@ -34,9 +33,10 @@ def create_configmap_spec(*, configmap, docker_compose_config, **_):
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def create(*, configmap, docker_compose_config, namespace, kubectl, **_):
+def create(*, configmap, docker_compose_path, docker_compose_config, namespace, kubectl, **_):
   configmap_specs = create_configmap_spec(
     configmap=configmap,
+    docker_compose_path=docker_compose_path,
     docker_compose_config=docker_compose_config,
     kubectl=kubectl,
   )
