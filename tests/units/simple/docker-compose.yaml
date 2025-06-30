@@ -7,7 +7,7 @@ x-kubernetes:
     apiVersion: v1
     kind: ServiceAccount
     metadata:
-      name: default
+      name: custom
 services:
   # a deployment is created with this name
   test-web:
@@ -23,7 +23,7 @@ services:
         # this annotation causes a ingress to be created for the deployment
         maayanlab.cloud/ingress: http://localhost
       # add explicit service account name
-      serviceAccountName: default
+      serviceAccountName: custom
     volumes:
     - test-volume:/data
     configs:
