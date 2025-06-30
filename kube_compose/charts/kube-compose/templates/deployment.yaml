@@ -143,7 +143,7 @@ spec:
   {{- if .service.shm_size }}
   - name: shm
     emptyDir:
-      medium: MemoryAdd commentMore actions
+      medium: Memory
       sizeLimit: {{ div (div .service.shm_size 1024) 1024 }}Mi
   {{- end }}
   {{- end }}
