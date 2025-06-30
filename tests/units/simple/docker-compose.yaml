@@ -16,6 +16,8 @@ services:
       annotations:
         # this annotation causes a ingress to be created for the deployment
         maayanlab.cloud/ingress: http://localhost
+      # add explicit service account name
+      serviceAccountName: default
     volumes:
     - test-volume:/data
     configs:

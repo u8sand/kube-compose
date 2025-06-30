@@ -131,6 +131,9 @@ spec:
   {{- else }}
   restartPolicy: "Always"
   {{- end }}
+  {{- if .x_kubernetes.serviceAccountName }}
+  serviceAccountName: {{ .x_kubernetes.serviceAccountName }}
+  {{- end }}
   {{- if or .volumes .configs }}
   volumes:
   {{- if .volumes }}
