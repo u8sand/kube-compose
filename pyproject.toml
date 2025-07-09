@@ -1,19 +1,22 @@
-[tool.poetry]
+[project]
 name = "kube-compose"
-version = "0.8.0"
+version = "0.9.0"
 description = "An opinionated way of deploying docker-compose to kubernetes clusters by managing them with a helm chart."
-authors = ["Daniel Clarke <u8sand@gmail.com>"]
+authors = [
+    {name = "Daniel J. B. Clarke",email = "u8sand@gmail.com"}
+]
 readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "^3.8"
-click = "^8.1.7"
-pyyaml = "^6.0.1"
-ruamel-yaml = "^0.18.14"
+requires-python = ">=3.10"
+dependencies = [
+    "click (>=8.2.1,<9.0.0)",
+    "pyyaml (>=6.0.2,<7.0.0)",
+    "ruamel-yaml (>=0.18.14,<0.19.0)"
+]
 
 [tool.poetry.scripts]
 kube-compose = 'kube_compose.__main__:cli'
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
