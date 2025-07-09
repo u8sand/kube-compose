@@ -24,6 +24,7 @@ ports:
 - name: {{ lower $port.protocol }}-{{ $port.target }}
   containerPort: {{ $port.target }}
   protocol: {{ upper $port.protocol }}
+  x_kubernetes: {{ index $port "x-kubernetes" | default dict | toJson }}
 {{- end -}}
 {{- end -}}
 
@@ -93,7 +94,13 @@ spec:
     {{- end }}
     {{- if .ports }}
     ports:
-{{ toYaml .ports | indent 8 }}
+{{- range $port := .ports }}
+{{- if $port }}
+    - name: {{ $port.name }}
+      containerPort: {{ $port.containerPort }}
+      protocol: {{ $port.protocol }}
+{{- end }}
+{{- end }}
     {{- end }}
     {{- if (.service.deploy | default dict).resources }}
     resources:
@@ -203,30 +210,34 @@ spec:
   template:
 {{ toYaml ((include "template" .) | fromYaml) | indent 4 }}
 
-{{- if $ports }}
+{{- range $port := $ports }}
+{{- $portLabels := merge ($port.x_kubernetes.labels | default dict) ($x_kubernetes.labels | default dict) }}
+{{- $portAnnotations := merge ($port.x_kubernetes.annotations | default dict) ($x_kubernetes.annotations | default dict) }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  {{- if $x_kubernetes.labels }}
+  {{- if $portLabels }}
   labels:
-{{ toYaml $x_kubernetes.labels | indent 4 }}
+{{ toYaml $portLabels | indent 4 }}
   {{- end }}
-  {{- if $x_kubernetes.annotations }}
+  {{- if $portAnnotations }}
   annotations:
-{{ toYaml $x_kubernetes.annotations | indent 4 }}
+{{ toYaml $portAnnotations | indent 4 }}
   {{- end }}
+  {{- if gt (len $ports) 1 }}
+  name: {{ $name }}-{{ .name }}
+  {{ else }}
   name: {{ $name }}
+  {{- end }}
 spec:
   selector:
     app.kubernetes.io/name: {{ $name }}
   ports:
-    {{- range $ports }}
-    - name: {{ .name }}
-      protocol: {{ .protocol }}
-      port: {{ .containerPort }}
-      targetPort: {{ .containerPort }}
-    {{- end }}
+    - name: {{ $port.name }}
+      protocol: {{ $port.protocol }}
+      port: {{ $port.containerPort }}
+      targetPort: {{ $port.containerPort }}
 {{- end }}
 
 {{- else }}
