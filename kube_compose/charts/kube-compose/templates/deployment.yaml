@@ -72,9 +72,11 @@ spec:
     {{- else }}
     imagePullPolicy: "Always"
     {{- end }}
+    {{- if .service.entrypoint }}
+    command: {{ .service.entrypoint | toJson }}
+    {{- end }}
     {{- if .service.command }}
-    command: {{ list (index .service.command 0) | toJson }}
-    args: {{ slice .service.command 1 | toJson }}
+    args: {{ .service.command | toJson }}
     {{- end }}
     {{- if .env }}
     env:
