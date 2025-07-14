@@ -29,8 +29,11 @@ def version(service, newversion):
     prefix, major, minor, _, patch, postfix = semver.groups()
     if newversion == 'major':
       major = str(int(major)+1)
+      minor = '0'
+      patch = '0'
     elif newversion == 'minor':
       minor = str(int(minor)+1)
+      patch = '0'
     elif newversion == 'patch':
       patch = str(int(patch or -1)+1)
     newversion = ''.join([prefix, '.'.join(filter(None, [major, minor, patch])), postfix])

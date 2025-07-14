@@ -1,6 +1,6 @@
 [project]
 name = "kube-compose"
-version = "0.9.0"
+version = "0.9.1"
 description = "An opinionated way of deploying docker-compose to kubernetes clusters by managing them with a helm chart."
 authors = [
     {name = "Daniel J. B. Clarke",email = "u8sand@gmail.com"}
