@@ -114,11 +114,18 @@ def require_kube_compose_release(fn):
     release_config = docker_compose_config['x-kubernetes']
     name = release_config['name']
     namespace = release_config.get('namespace')
+    deployments = {
+      service_name: f"deploy/{service_name}" if service.get('deploy', {}).get('mode') != 'global' else f"daemonset/{service_name}"
+      for service_name, service in docker_compose_config.get('services', {}).items()
+      for x_kubernetes in (service.get('x-kubernetes', {}),)
+      if not x_kubernetes.get('exclude') and x_kubernetes.get('cron') is None
+    }
     return fn(**dict(kwargs,
       docker_compose=docker_compose,
       docker_compose_path=docker_compose_path,
       docker_compose_config_raw=docker_compose_config_raw,
       docker_compose_config=docker_compose_config,
+      deployments=deployments,
       release_config=release_config,
       name=name,
       namespace=namespace,

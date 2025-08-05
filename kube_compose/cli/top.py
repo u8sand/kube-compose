@@ -7,17 +7,18 @@ from kube_compose import utils
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
 @click.argument('service', type=str, required=False)
-def top(service, *, namespace, docker_compose_config, kubectl, **_):
+def top(service, *, namespace, deployments, kubectl, **_):
   ''' Like `docker-compose top` but show status of the kubernetes deployed resource
   '''
   import subprocess
-  for svc in ([service] if service is not None else docker_compose_config.get('services', {}).keys()):
-    print(svc)
+  service_deploy = [(service, deployments[service])] if service is not None else list(deployments.items())
+  for service_name, deploy in service_deploy:
+    print(service_name)
     try:
       results = subprocess.check_output([
         *kubectl, 'exec', 
         *(('-n', namespace) if namespace else tuple()),
-        f"deploy/{svc}",
+        deploy,
         '--',
         '/bin/sh',
         '-c',

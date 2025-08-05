@@ -20,12 +20,17 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
     if ':' in src and ':' not in dst:
       dst_path = pathlib.Path(dst)
       service, _, path = src.partition(':')
+      pod = json.loads(utils.check_output([
+        *kubectl, 'get', 'pod',
+        *(['-n', namespace] if namespace else []),
+        '-l', f"app.kubernetes.io/name={service}", '-o', 'jsonpath="{.items[0][\'metadata.name\']}"'
+      ]).decode())
       src_path = pathlib.PurePosixPath(path)
       ls_R = utils.check_output([
         *kubectl, 'exec',
         *(('-n', namespace) if namespace else tuple()),
         '-t',
-        f"deploy/{service}",
+        pod,
         '--', 'ls', '-R', path
       ])
       directory = src_path
@@ -55,7 +60,7 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
             *kubectl, 'exec',
             *(('-n', namespace) if namespace else tuple()),
             '-t',
-            f"deploy/{service}",
+            pod,
             '--', 'cat', str(file)
           ], stdout=fw, check=True)
     elif ':' in dst and ':' not in src:
@@ -69,7 +74,7 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
             *kubectl, 'exec',
             *(('-n', namespace) if namespace else tuple()),
             '-t',
-            f"deploy/{service}",
+            pod,
             '--', 'mkdir', '-p', str(dst_path)
           ], check=True)
         elif path.is_file():
@@ -79,7 +84,7 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
               *kubectl, 'exec',
               *(('-n', namespace) if namespace else tuple()),
               '-i',
-              f"deploy/{service}",
+              pod,
               '--', '/bin/sh', '-c', f"cat > {str(dst_path)}"
             ], stdin=fr, check=True)
         else:
@@ -91,14 +96,14 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
       if ':' in arg:
         service, _, path = arg.partition(':')
         # find the pod for the specified docker-compose service
-        pod = utils.check_output([
+        pod = json.loads(utils.check_output([
           *kubectl, 'get', 'pod',
           *(['-n', namespace] if namespace else []),
           '-l', f"app.kubernetes.io/name={service}", '-o', 'jsonpath="{.items[0][\'metadata.name\']}"'
-        ])
+        ]).decode())
         args_.append(
           (f"{namespace}/" if namespace else '')
-          + f"{json.loads(pod.decode())}:{path}"
+          + f"{pod}:{path}"
         )
       else:
         args_.append(arg)

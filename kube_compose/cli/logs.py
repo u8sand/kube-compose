@@ -21,6 +21,6 @@ def logs(service, args, *, previous, follow, tail, timestamps, kubectl, namespac
     *((f"--tail={tail}",) if tail != -1 else tuple()),
     *((f"--timestamps",) if timestamps else tuple()),
     *(('-n', namespace) if namespace else tuple()),
-    f"deploy/{service}",
+    '-l', f"app.kubernetes.io/name={service}",
     *args,
   ])
