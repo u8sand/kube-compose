@@ -13,6 +13,6 @@ def port_forward(service, args, *, namespace, kubectl, **_):
   utils.run([
     *kubectl, 'port-forward',
     *(('-n', namespace) if namespace else tuple()),
-    f"deploy/{service}",
+    f"svc/{service}",
     *args,
   ])
