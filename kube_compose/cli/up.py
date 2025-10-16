@@ -1,3 +1,4 @@
+import click
 import subprocess
 from kube_compose.cli import cli
 from kube_compose import utils
@@ -5,7 +6,8 @@ from kube_compose import utils
 @cli.command()
 @utils.require_binaries(helm='helm', kubectl='kubectl')
 @utils.require_kube_compose_release
-def up(*, helm, kubectl, name, context, namespace, docker_compose_config_raw, deployments, **_):
+@click.option('--create-namespace', type=bool, is_flag=True, help='Create the release namespace if not present')
+def up(*, helm, kubectl, name, context, namespace, docker_compose_config_raw, deployments, create_namespace, **_):
   ''' Like `docker-compose up` but runs in the kubernetes cluster
   '''
   from kube_compose.cli.volume.create import create as volume_create
@@ -36,6 +38,7 @@ def up(*, helm, kubectl, name, context, namespace, docker_compose_config_raw, de
       'install',
       name,
       utils.helm_chart,
+      *(['--create-namespace'] if create_namespace else []),
       '-f', '-',
     ], input=docker_compose_config_raw)
   #
