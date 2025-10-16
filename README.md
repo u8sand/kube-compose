@@ -40,13 +40,17 @@ The CLI is intended to be easy to use for those familiar with docker-compose and
 - helm
 - docker-compose
 
-## Installation
+## Usage
 ```bash
+# use right away with uvx
+uvx kube-compose --help
+
+# install as cli with pipx
+pipx install kube-compose
+kube-compose --help
+
 # install off of pypi
 pip install kube-compose
-
-# verify install was successful
-kube-compose --help
 ```
 
 ## CLI Usage with Docker
@@ -57,7 +61,6 @@ alias kube-compose="docker run -v .:/work -v ~/.kube/config:/work/.kube/config -
 # verify install was successful
 kube-compose --help
 ```
-
 
 ## End-to-end Example with K3D
 ```bash
