@@ -11,7 +11,7 @@ from kube_compose.cli import cli
 @click.option('-t', '--tty', type=bool, is_flag=True)
 @click.argument('service', type=str)
 @click.argument('args', nargs=-1, type=str)
-def run(*, service, args, stdin, tty, namespace, docker_compose_config, kubectl, **_):
+def run(*, service, args, stdin, tty, context, namespace, docker_compose_config, kubectl, **_):
   ''' Like `docker-compose run` but for the kubernetes deployed resources
   '''
   service_config = docker_compose_config['services'][service]
@@ -56,9 +56,11 @@ def run(*, service, args, stdin, tty, namespace, docker_compose_config, kubectl,
       )
   #
   utils.run([
-    *kubectl, 'run',
+    *kubectl,
+      *(['--context', context] if context else []),
+      *(['-n', namespace] if namespace else []),
+      'run',
       name,
-      *(('-n', namespace) if namespace else tuple()),
       '--attach',
       '--rm',
       *(('-i',) if stdin else tuple()),

@@ -5,7 +5,7 @@ from kube_compose import utils
 @cli.command()
 @utils.require_binaries(helm='helm', kubectl='kubectl')
 @utils.require_kube_compose_release
-def up(*, helm, kubectl, name, namespace, docker_compose_config_raw, deployments, **_):
+def up(*, helm, kubectl, name, context, namespace, docker_compose_config_raw, deployments, **_):
   ''' Like `docker-compose up` but runs in the kubernetes cluster
   '''
   from kube_compose.cli.volume.create import create as volume_create
@@ -13,26 +13,36 @@ def up(*, helm, kubectl, name, namespace, docker_compose_config_raw, deployments
   volume_create(volume=None)
   configmap_create(configmap=None)
   if subprocess.call([
-    *helm, 'status', *(('-n', namespace) if namespace else tuple()), name
+    *helm,
+    *(['--kube-context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'status',
+    name
   ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
     utils.run([
-      *helm, 'upgrade',
-      *(('-n', namespace) if namespace else tuple()),
+      *helm,
+      *(['--kube-context', context] if context else []),
+      *(['-n', namespace] if namespace else []),
+      'upgrade',
       name,
       utils.helm_chart,
       '-f', '-'
     ], input=docker_compose_config_raw)
   else:
     utils.run([
-      *helm, 'install',
-      *(('-n', namespace) if namespace else tuple()),
+      *helm,
+      *(['--kube-context', context] if context else []),
+      *(['-n', namespace] if namespace else []),
+      'install',
       name,
       utils.helm_chart,
       '-f', '-',
     ], input=docker_compose_config_raw)
   #
   utils.run([
-    *kubectl, 'rollout', 'status',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'rollout', 'status',
     *deployments.values(),
   ])

@@ -7,7 +7,7 @@ from kube_compose.cli.configmap.create import create_configmap_spec
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def template(*, configmap, docker_compose_path, docker_compose_config, namespace, kubectl, **_):
+def template(*, configmap, docker_compose_path, docker_compose_config, context, namespace, kubectl, **_):
   configmap_specs = create_configmap_spec(
     configmap=configmap,
     docker_compose_path=docker_compose_path,
@@ -17,10 +17,12 @@ def template(*, configmap, docker_compose_path, docker_compose_config, namespace
   if not configmap_specs: return []
   # use kubectl to fill-in defaults/validate
   templ = yaml.safe_load(utils.check_output([
-    *kubectl, 'apply',
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+     'apply',
     '--dry-run=client',
     '-oyaml',
-    *(('-n', namespace) if namespace else tuple()),
     '-f', '-',
   ], input=yaml.dump_all(create_configmap_spec(
     configmap=configmap,

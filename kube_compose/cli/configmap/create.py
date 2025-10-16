@@ -33,7 +33,7 @@ def create_configmap_spec(*, configmap, docker_compose_path, docker_compose_conf
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def create(*, configmap, docker_compose_path, docker_compose_config, namespace, kubectl, **_):
+def create(*, configmap, docker_compose_path, docker_compose_config, context, namespace, kubectl, **_):
   configmap_specs = create_configmap_spec(
     configmap=configmap,
     docker_compose_path=docker_compose_path,
@@ -42,8 +42,10 @@ def create(*, configmap, docker_compose_path, docker_compose_config, namespace, 
   )
   if not configmap_specs: return
   utils.run([
-    *kubectl, 'apply',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'apply',
     '-f', '-',
   ], input=yaml.dump_all(configmap_specs).encode())
 

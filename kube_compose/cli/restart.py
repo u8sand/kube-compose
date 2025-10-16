@@ -6,17 +6,21 @@ from kube_compose import utils
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
 @click.argument('service', type=str, required=False)
-def restart(service, *, namespace, kubectl, deployments, **_):
+def restart(service, *, context, namespace, kubectl, deployments, **_):
   ''' Like `docker-compose restart` but effects the kubernetes deployed resources
   '''
   deploy = [deployments[service]] if service is not None else list(deployments.values())
   utils.run([
-    *kubectl, 'rollout', 'restart',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'rollout', 'restart',
     *deploy,
   ])
   utils.run([
-    *kubectl, 'rollout', 'status',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'rollout', 'status',
     *deploy,
   ])

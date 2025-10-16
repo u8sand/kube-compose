@@ -11,10 +11,12 @@ def _(**kwargs):
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def inspect(*, volume, namespace, kubectl, **_):
+def inspect(*, volume, context, namespace, kubectl, **_):
   utils.run([
-    *kubectl, 'get',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'get',
     f"pvc/{volume}",
     '-o', 'yaml',
   ])

@@ -11,10 +11,12 @@ def _(**kwargs):
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def rm(*, configmap, docker_compose_config, namespace, kubectl, **_):
+def rm(*, configmap, docker_compose_config, context, namespace, kubectl, **_):
   for configmap in ([configmap] if configmap is not None else docker_compose_config.get('configs', {}).keys()):
     utils.run([
-      *kubectl, 'delete',
-      *(('-n', namespace) if namespace else tuple()),
+      *kubectl,
+      *(['--context', context] if context else []),
+      *(['-n', namespace] if namespace else []),
+      'delete',
       f"configmap/{configmap}",
     ])

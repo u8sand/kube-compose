@@ -9,12 +9,14 @@ from kube_compose import utils
 @click.option('-t', '--tty', type=bool, is_flag=True)
 @click.argument('service', type=str)
 @click.argument('args', nargs=-1, type=str)
-def exec(service, args, *, stdin, tty, namespace, kubectl, deployments, **_):
+def exec(service, args, *, stdin, tty, context, namespace, kubectl, deployments, **_):
   ''' Like `docker-compose exec` but for the kubernetes deployed resources
   '''
   utils.run([
-    *kubectl, 'exec',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'exec',
     *(('-i',) if stdin else tuple()),
     *(('-t',) if tty else tuple()),
     deployments[service],

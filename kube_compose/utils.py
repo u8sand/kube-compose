@@ -113,6 +113,7 @@ def require_kube_compose_release(fn):
       raise click.ClickException('top-level `x-kubernetes` map with release `name` is required')
     release_config = docker_compose_config['x-kubernetes']
     name = release_config['name']
+    context = release_config.get('context')
     namespace = release_config.get('namespace')
     deployments = {
       service_name: f"deploy/{service_name}" if service.get('deploy', {}).get('mode') != 'global' else f"daemonset/{service_name}"
@@ -128,6 +129,7 @@ def require_kube_compose_release(fn):
       deployments=deployments,
       release_config=release_config,
       name=name,
+      context=context,
       namespace=namespace,
     ))
   return wrapper

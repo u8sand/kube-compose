@@ -11,16 +11,18 @@ from kube_compose import utils
 @click.option('-t', '--timestamps', type=bool, is_flag=True, help='Show timestamps')
 @click.argument('service', type=str)
 @click.argument('args', nargs=-1, type=str)
-def logs(service, args, *, previous, follow, tail, timestamps, kubectl, namespace, **_):
+def logs(service, args, *, previous, follow, tail, timestamps, kubectl, context, namespace, **_):
   ''' Like `docker-compose logs` but for the kubernetes deployed resources
   '''
   utils.run([
-    *kubectl, 'logs',
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'logs',
     *(('-p',) if previous else tuple()),
     *(('-f',) if follow else tuple()),
     *((f"--tail={tail}",) if tail != -1 else tuple()),
     *((f"--timestamps",) if timestamps else tuple()),
-    *(('-n', namespace) if namespace else tuple()),
     '-l', f"app.kubernetes.io/name={service}",
     *args,
   ])

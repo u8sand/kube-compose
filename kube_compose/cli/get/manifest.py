@@ -4,7 +4,13 @@ from kube_compose import utils
 @get.command('manifest')
 @utils.require_binaries(helm='helm')
 @utils.require_kube_compose_release
-def get_manifest(*, name, namespace, helm, **_):
+def get_manifest(*, name, context, namespace, helm, **_):
   ''' download the manifest for a named release
   '''
-  utils.run([*helm, 'get', 'manifest', *(('-n', namespace) if namespace else tuple()), name])
+  utils.run([
+    *helm,
+    *(['--kube-context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'get', 'manifest',
+    name,
+  ])

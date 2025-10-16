@@ -97,7 +97,7 @@ kube-compose start test-web
 kube-compose scale test-web=2
 
 # we can see helm charts (like kube-compose deployed things) deployed to the cluster with
-kube-compose ls
+kube-compose ls --context k3d-k3s-default
 # we can get the actual deployment kubernetes would use with
 kube-compose template
 # we can see what revision we're at/when it was updated with

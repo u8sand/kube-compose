@@ -1,5 +1,6 @@
 x-kubernetes:
   # this is the helm chart release name and namespace
+  context: k3d-k3s-default
   name: test
   namespace: default
   # arbitrary, additional kubeconfig data
@@ -8,6 +9,7 @@ x-kubernetes:
     kind: ServiceAccount
     metadata:
       name: custom
+
 services:
   # a deployment is created with this name
   test-web:

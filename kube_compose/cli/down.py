@@ -6,12 +6,14 @@ from kube_compose import utils
 @click.option('-v', '--volumes', type=bool, is_flag=True, help='Remove named volumes/configmaps declared in the "volumes"/"configs" sections')
 @utils.require_binaries(helm='helm')
 @utils.require_kube_compose_release
-def down(*, helm, name, namespace, volumes, **_):
+def down(*, helm, name, context, namespace, volumes, **_):
   ''' Like `docker-compose down` but stops the kubernetes deployed resources
   '''
   utils.run([
-    *helm, 'uninstall',
-    *(('-n', namespace) if namespace else tuple()),
+    *helm,
+    *(['--kube-context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'uninstall',
     name,
   ])
   if volumes:

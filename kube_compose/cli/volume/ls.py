@@ -11,9 +11,11 @@ def _(**kwargs):
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def ls(*, namespace, kubectl, **_):
+def ls(*, context, namespace, kubectl, **_):
   utils.run([
-    *kubectl, 'get',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'get',
     'pvc',
   ])

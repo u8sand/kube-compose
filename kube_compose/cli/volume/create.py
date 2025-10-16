@@ -30,7 +30,7 @@ def create_volume_spec(*, volume, docker_compose_config, **_):
 
 @utils.require_binaries(kubectl='kubectl')
 @utils.require_kube_compose_release
-def create(*, volume, docker_compose_config, namespace, kubectl, **_):
+def create(*, volume, docker_compose_config, context, namespace, kubectl, **_):
   volume_specs = create_volume_spec(
     volume=volume,
     docker_compose_config=docker_compose_config,
@@ -38,8 +38,10 @@ def create(*, volume, docker_compose_config, namespace, kubectl, **_):
   )
   if not volume_specs: return
   utils.run([
-    *kubectl, 'apply',
-    *(('-n', namespace) if namespace else tuple()),
+    *kubectl,
+    *(['--context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+     'apply',
     '-f', '-',
   ], input=yaml.dump_all(volume_specs).encode())
 

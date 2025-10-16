@@ -10,7 +10,7 @@ from kube_compose.cli import cli
 @utils.require_kube_compose_release
 @click.option('-T', '--no-tar', type=bool, is_flag=True, default=False)
 @click.argument('args', nargs=-1, type=str, metavar='[SERVICE:SRC_PATH|SRC_PATH|-] [DEST_PATH|-|SERVICE:DEST_PATH]')
-def cp(*, no_tar, args, namespace, kubectl, **_):
+def cp(*, no_tar, args, context, namespace, kubectl, **_):
   ''' Like `docker-compose cp` but for the kubernetes deployed resources
   Use `-T` as a fallback if tar is not available, cat can be used one-at-a-time instead
   '''
@@ -21,14 +21,17 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
       dst_path = pathlib.Path(dst)
       service, _, path = src.partition(':')
       pod = json.loads(utils.check_output([
-        *kubectl, 'get', 'pod',
+        *kubectl,
+        *(['--context', context] if context else []),
         *(['-n', namespace] if namespace else []),
+        'get', 'pod',
         '-l', f"app.kubernetes.io/name={service}", '-o', 'jsonpath="{.items[0][\'metadata.name\']}"'
       ]).decode())
       src_path = pathlib.PurePosixPath(path)
       ls_R = utils.check_output([
         *kubectl, 'exec',
-        *(('-n', namespace) if namespace else tuple()),
+        *(['--context', context] if context else []),
+        *(['-n', namespace] if namespace else []),
         '-t',
         pod,
         '--', 'ls', '-R', path
@@ -57,8 +60,10 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
         click.echo(f"scp {service}:{file} {str(dst_path/(file.relative_to(src_path)))}")
         with (dst_path/(file.relative_to(src_path))).open('wb') as fw:
           subprocess.run([
-            *kubectl, 'exec',
-            *(('-n', namespace) if namespace else tuple()),
+            *kubectl,
+            *(['--context', context] if context else []),
+            *(['-n', namespace] if namespace else []),
+            'exec',
             '-t',
             pod,
             '--', 'cat', str(file)
@@ -71,8 +76,10 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
         if path.is_dir():
           click.echo(f"exec -- mkdir -p  {str(dst_path)}")
           subprocess.run([
-            *kubectl, 'exec',
-            *(('-n', namespace) if namespace else tuple()),
+            *kubectl,
+            *(['--context', context] if context else []),
+            *(['-n', namespace] if namespace else []),
+            'exec',
             '-t',
             pod,
             '--', 'mkdir', '-p', str(dst_path)
@@ -81,8 +88,10 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
           click.echo(f"exec -- 'cat > {str(dst_path)}' < {str(path)}")
           with path.open('rb') as fr:
             subprocess.run([
-              *kubectl, 'exec',
-              *(('-n', namespace) if namespace else tuple()),
+              *kubectl,
+              *(['--context', context] if context else []),
+              *(['-n', namespace] if namespace else []),
+              'exec',
               '-i',
               pod,
               '--', '/bin/sh', '-c', f"cat > {str(dst_path)}"
@@ -97,8 +106,10 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
         service, _, path = arg.partition(':')
         # find the pod for the specified docker-compose service
         pod = json.loads(utils.check_output([
-          *kubectl, 'get', 'pod',
+          *kubectl,
+          *(['--context', context] if context else []),
           *(['-n', namespace] if namespace else []),
+          'get', 'pod',
           '-l', f"app.kubernetes.io/name={service}", '-o', 'jsonpath="{.items[0][\'metadata.name\']}"'
         ]).decode())
         args_.append(
@@ -107,4 +118,9 @@ def cp(*, no_tar, args, namespace, kubectl, **_):
         )
       else:
         args_.append(arg)
-    utils.run([*kubectl, 'cp', *args_])
+    utils.run([
+      *kubectl,
+      *(['--context', context] if context else []),
+      'cp',
+      *args_,
+    ])

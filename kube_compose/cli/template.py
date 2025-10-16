@@ -17,10 +17,12 @@ def _(**_):
 
 @utils.require_binaries(helm='helm')
 @utils.require_kube_compose_release
-def template(*, helm, name, namespace, docker_compose_config_raw, **_):
+def template(*, helm, name, context, namespace, docker_compose_config_raw, **_):
   output = list(yaml.safe_load_all(utils.check_output([
-    *helm, 'template',
-    *(('-n', namespace) if namespace else tuple()),
+    *helm,
+    *(['--kube-context', context] if context else []),
+    *(['-n', namespace] if namespace else []),
+    'template',
     name,
     utils.helm_chart,
     '-f', '-', '--validate=false',
