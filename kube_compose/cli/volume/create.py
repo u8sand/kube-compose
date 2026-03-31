@@ -7,7 +7,7 @@ def create_volume_spec(*, volume, docker_compose_config, **_):
   volume_specs = []
   for volume, volume_config in ([(volume, docker_compose_config['volumes'][volume],)] if volume is not None else docker_compose_config.get('volumes', {}).items()):
     volume_ext_config = volume_config.get('x-kubernetes', {})
-    volume_specs.append({
+    volume_spec = {
       'apiVersion': 'v1',
       'kind': 'PersistentVolumeClaim',
       'metadata': {
@@ -25,7 +25,10 @@ def create_volume_spec(*, volume, docker_compose_config, **_):
         'storageClassName': volume_ext_config.get('class', ''),
         'volumeMode': 'Filesystem',
       },
-    })
+    }
+    if 'name' in volume_ext_config:
+      volume_spec['spec']['volumeName'] = volume_ext_config['name']
+    volume_specs.append(volume_spec)
   return volume_specs
 
 @utils.require_binaries(kubectl='kubectl')
