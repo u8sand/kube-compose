@@ -32,9 +32,14 @@ ports:
 volumes:
 - null
 {{- range $volume := .service.volumes | default list }}
+{{- $subPath := index (index (index (index $.Values.volumes | default dict) $volume.source | default dict) "x-kubernetes" | default dict) "subPath" }}
 - name: {{ $volume.source }}
   mountPath: {{ $volume.target }}
-  subPath: data
+{{- if eq $subPath "" }}
+  subPath: ""
+{{ else }}
+  subPath: {{ $subPath | default "data" }}
+{{- end }}
 {{- end }}
 {{- if .service.shm_size }}
 - name: shm
@@ -172,7 +177,7 @@ spec:
 
 
 {{- range $name, $service := $.Values.services }}
-{{- with dict "name" $name "service" $service }}
+{{- with dict "name" $name "service" $service "Values" $.Values }}
 {{- $x_kubernetes := index .service "x-kubernetes" | default dict }}
 {{- if not ($x_kubernetes.exclude | default false) }}
 {{- $ports := slice (index ((include "ports" .) | fromYaml) "ports") 1 }}
