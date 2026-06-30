@@ -21,9 +21,16 @@ def run(*, service, args, stdin, tty, context, namespace, docker_compose_config,
       'containers': [{
         'name': name,
         'image': service_config['image'],
+        'tty': tty,
+        'stdin': stdin,
       }],
     },
   }
+  #
+  if args:
+    c, *a = args
+    overrides['spec']['containers'][0]['command'] = [c]
+    overrides['spec']['containers'][0]['args'] = [*a]
   #
   if service_config.get('environment'):
     overrides['spec']['containers'][0]['env'] = [
