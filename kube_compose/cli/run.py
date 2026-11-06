@@ -28,7 +28,8 @@ def run(*, service, args, stdin, tty, context, namespace, docker_compose_config,
   }
   #
   if args:
-    c, *a = args
+    # args come from the shell (not compose), so they need escaping for kubernetes' `$(VAR)` expansion
+    c, *a = map(utils.k8s_escape, args)
     overrides['spec']['containers'][0]['command'] = [c]
     overrides['spec']['containers'][0]['args'] = [*a]
   #
@@ -74,5 +75,5 @@ def run(*, service, args, stdin, tty, context, namespace, docker_compose_config,
       *(('-t',) if tty else tuple()),
       f"--image={service_config['image']}",
       '--overrides', json.dumps(overrides),
-      *(('--command', '--', *args) if args else tuple()),
+      *(('--command', '--', *map(utils.k8s_escape, args)) if args else tuple()),
   ])

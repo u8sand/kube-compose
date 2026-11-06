@@ -1,3 +1,7 @@
+{{- /* NOTE on `$` escaping: `docker compose config` emits every literal `$` as `$$`.
+  kubernetes applies the same convention (`$$` => `$`, `$(VAR)` => expansion) to env values, command/args and
+  probe exec commands, so those are passed through verbatim. Fields kubernetes does not expand (labels, annotations,
+  the rest of `x-kubernetes`) are unescaped with `replace "$$" "$"`. */}}
 {{- define "env" -}}
 env:
 - null
@@ -8,10 +12,10 @@ env:
 {{- $name := first $value_parsed }}
 {{- $value := last $value_parsed }}
 - name: {{ $name | toJson }}
-  value: {{ $value | replace "$$" "$" | toJson }}
+  value: {{ $value | toJson }}
 {{- else }}
 - name: {{ $name | toJson }}
-  value: {{ $value | replace "$$" "$" | toJson }}
+  value: {{ $value | toJson }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -28,7 +32,7 @@ ports:
 - name: {{ $portName }}
   containerPort: {{ $port.target }}
   protocol: {{ upper ($port.protocol | default "tcp") }}
-  x_kubernetes: {{ index $port "x-kubernetes" | default dict | toJson }}
+  x_kubernetes: {{ index $port "x-kubernetes" | default dict | toJson | replace "$$" "$" }}
 {{- end }}
 {{- end }}
 {{- /* `expose` ports are reachable by other services but not published, i.e. a Service port without ingress */}}
@@ -144,13 +148,9 @@ secrets:
 {{- if eq (first $test) "CMD-SHELL" }}
 {{- $cmd = list "/bin/sh" "-c" (join " " $cmd) }}
 {{- end }}
-{{- $command := list }}
-{{- range $arg := $cmd }}
-{{- $command = append $command (toString $arg | replace "$$" "$") }}
-{{- end }}
 probe:
   exec:
-    command: {{ $command | toJson }}
+    command: {{ $cmd | toJson }}
   periodSeconds: {{ max 1 (include "seconds" ($healthcheck.interval | default "30s") | int) }}
   timeoutSeconds: {{ max 1 (include "seconds" ($healthcheck.timeout | default "30s") | int) }}
   failureThreshold: {{ $healthcheck.retries | default 3 | int }}
@@ -277,11 +277,11 @@ spec:
     {{- else }}
     imagePullPolicy: "Always"
     {{- end }}
-    {{- if .service.entrypoint }}
-    command: {{ .service.entrypoint | toJson }}
+    {{- with .service.entrypoint }}
+    command: {{ . | toJson }}
     {{- end }}
-    {{- if .service.command }}
-    args: {{ .service.command | toJson }}
+    {{- with .service.command }}
+    args: {{ . | toJson }}
     {{- end }}
     {{- if .env }}
     env:
@@ -395,7 +395,7 @@ spec:
 
 {{- range $name, $service := $.Values.services }}
 {{- with dict "name" $name "service" $service "Values" $.Values }}
-{{- $x_kubernetes := index .service "x-kubernetes" | default dict }}
+{{- $x_kubernetes := index .service "x-kubernetes" | default dict | toJson | replace "$$" "$" | fromJson }}
 {{- if not ($x_kubernetes.exclude | default false) }}
 {{- $ports := slice (index ((include "ports" .) | fromYaml) "ports") 1 }}
 {{- $env := slice (index ((include "env" .) | fromYaml) "env") 1 }}
@@ -523,5 +523,5 @@ spec:
 {{- if (index $.Values "x-kubernetes" | default dict).apply }}
 {{- $x_kubernetes := index $.Values "x-kubernetes" }}
 ---
-{{ $x_kubernetes.apply }}
+{{ $x_kubernetes.apply | replace "$$" "$" }}
 {{- end }}

@@ -115,6 +115,20 @@ _name_rules = {
   'secrets': (re.compile(rf'^{_dns1123_label}(\.{_dns1123_label})*$'), 253, "lowercase alphanumeric characters, '-' or '.'"),
 }
 
+def compose_unescape(value):
+  ''' `docker compose config` emits every literal `$` as `$$`, undo that for values which kubernetes
+  won't expand itself (i.e. anything except env values, command/args & probe exec commands)
+  '''
+  if isinstance(value, str): return value.replace('$$', '$')
+  elif isinstance(value, dict): return {k: compose_unescape(v) for k, v in value.items()}
+  elif isinstance(value, list): return [compose_unescape(v) for v in value]
+  else: return value
+
+def k8s_escape(value):
+  ''' Escape a literal string for fields kubernetes expands (env values, command/args): `$` => `$$`
+  '''
+  return value.replace('$', '$$')
+
 def validate_resource_names(docker_compose_config):
   ''' Compose allows names (e.g. `postgres_data`) which aren't valid kubernetes object names
   '''

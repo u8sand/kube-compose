@@ -6,7 +6,7 @@ from kube_compose.cli.volume import volume
 def create_volume_spec(*, volume, docker_compose_config, **_):
   volume_specs = []
   for volume, volume_config in ([(volume, docker_compose_config['volumes'][volume],)] if volume is not None else docker_compose_config.get('volumes', {}).items()):
-    volume_ext_config = volume_config.get('x-kubernetes', {})
+    volume_ext_config = utils.compose_unescape(volume_config.get('x-kubernetes', {}))
     volume_spec = {
       'apiVersion': 'v1',
       'kind': 'PersistentVolumeClaim',

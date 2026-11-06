@@ -9,7 +9,7 @@ def create_secret_spec(*, secret, docker_compose_path, docker_compose_config, **
   secret_specs = []
   for secret, secret_config in ([(secret, docker_compose_config['secrets'][secret],)] if secret is not None else docker_compose_config.get('secrets', {}).items()):
     if secret_config.get('external'): continue
-    secret_ext_config = secret_config.get('x-kubernetes', {})
+    secret_ext_config = utils.compose_unescape(secret_config.get('x-kubernetes', {}))
     secret_spec = {
       'apiVersion': 'v1',
       'kind': 'Secret',

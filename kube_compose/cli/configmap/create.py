@@ -7,7 +7,7 @@ from kube_compose.cli.configmap import configmap
 def create_configmap_spec(*, configmap, docker_compose_path, docker_compose_config, **_):
   configmap_specs = []
   for config, config_config in ([(configmap, docker_compose_config['configs'][configmap],)] if configmap is not None else docker_compose_config.get('configs', {}).items()):
-    config_ext_config = config_config.get('x-kubernetes', {})
+    config_ext_config = utils.compose_unescape(config_config.get('x-kubernetes', {}))
     configmap_spec = {
       'apiVersion': 'v1',
       'kind': 'ConfigMap',
@@ -19,7 +19,7 @@ def create_configmap_spec(*, configmap, docker_compose_path, docker_compose_conf
       'data': {}
     }
     if 'content' in config_config:
-      configmap_spec['data']['content'] = config_config['content']
+      configmap_spec['data']['content'] = utils.compose_unescape(config_config['content'])
     elif 'file' in config_config:
       configmap_spec['data']['content'] = (docker_compose_path.parent / config_config['file']).read_text()
     elif 'environment' in config_config:
