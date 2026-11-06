@@ -238,10 +238,25 @@ resources: {{ $resources | toJson }}
 nodeSelector: {{ $nodeSelector | toJson }}
 {{- end -}}
 
+{{- /* docker sets net.ipv4.ip_unprivileged_port_start=0 in every container (so e.g. non-root nginx can bind :80),
+  kubernetes doesn't; replicate that default (it's a "safe" sysctl) and let compose `sysctls` override/extend it */}}
+{{- define "sysctls" -}}
+{{- $sysctls := deepCopy (.service.sysctls | default dict) }}
+{{- if ne (.service.network_mode | default "") "host" }}
+{{- $sysctls = merge $sysctls (dict "net.ipv4.ip_unprivileged_port_start" "0") }}
+{{- end }}
+sysctls:
+{{- range $name, $value := $sysctls }}
+- name: {{ $name | toJson }}
+  value: {{ $value | toString | toJson }}
+{{- end }}
+{{- end -}}
+
 {{- define "template" -}}
 {{- $securityContext := (include "securityContext" . | fromYaml).securityContext }}
 {{- $resources := (include "resources" . | fromYaml).resources }}
 {{- $nodeSelector := (include "nodeSelector" . | fromYaml).nodeSelector }}
+{{- $sysctls := (include "sysctls" . | fromYaml).sysctls }}
 metadata:
   labels:
     app.kubernetes.io/name: {{ .name }}
@@ -315,6 +330,10 @@ spec:
   {{- end }}
   {{- if $nodeSelector }}
   nodeSelector: {{ toYaml $nodeSelector | nindent 4 }}
+  {{- end }}
+  {{- if $sysctls }}
+  securityContext:
+    sysctls: {{ toYaml $sysctls | nindent 6 }}
   {{- end }}
   dnsPolicy: {{ .x_kubernetes.dnsPolicy | default "ClusterFirst" }}
   {{- if .x_kubernetes.restartPolicy }}
