@@ -73,6 +73,8 @@ helm install kubernetes-auto-ingress maayanlab/kubernetes-auto-ingress --set ing
 
 # with one of the unit tests
 cd tests/units/simple
+# OR a more involved example (secrets, configs, profiles, healthchecks, hardened containers)
+#   cd tests/units/advanced && kube-compose --profile local-db up
 # OR for testing the current source base
 # alias kube-compose="python -m kube_compose -f tests/units/simple/docker-compose.yaml"
 

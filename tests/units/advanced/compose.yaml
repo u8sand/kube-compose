@@ -1,0 +1,161 @@
+# A more involved example exercising most of the compose features kube-compose translates:
+#  profiles, secrets, configs, healthchecks (=> readinessProbe), tmpfs (=> in-memory emptyDir),
+#  read_only/user/cap_drop/cap_add/security_opt (=> securityContext), mem_limit/deploy.resources (=> resources),
+#  expose (=> service ports without publishing) and `$$` escaping.
+#
+# docker compose up                        # web + api (api runs without a database)
+# docker compose --profile local-db up     # also start the bundled postgres
+# kube-compose up                          # same, but on kubernetes
+# kube-compose --profile local-db up
+x-kubernetes:
+  # this is the helm chart release name, `context` and `namespace` can also be set (see tests/units/simple)
+  name: advanced
+
+name: advanced
+
+services:
+  # a non-root, read-only nginx reverse proxy in front of the api
+  web:
+    image: nginx:1.27-alpine
+    x-kubernetes:
+      annotations:
+        # this annotation causes a ingress to be created for the deployment
+        maayanlab.cloud/ingress: http://localhost
+    ports:
+      # kube-compose only uses the container port (80), the host side is for docker compose
+      - "${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:80"
+    configs:
+      - source: web-conf
+        target: /etc/nginx/conf.d/default.conf
+    # NOTE: kubernetes doesn't order startup, nginx may restart a few times until `api` resolves,
+    #  traffic is only routed to pods once their healthcheck (readinessProbe) passes
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    # nginx runs as an unprivileged user yet binds :80, docker allows this by default and kube-compose
+    #  replicates that via the `net.ipv4.ip_unprivileged_port_start` sysctl
+    user: "101:101"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:uid=101,gid=101,mode=0700
+      - /run:uid=101,gid=101,mode=0700
+      - /tmp:uid=101,gid=101,mode=0700,size=16m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    networks: [frontend]
+
+  # a tiny python http api reading its configuration from the environment & secrets
+  api:
+    image: python:3.12-alpine
+    command:
+      - python
+      - -c
+      - |
+        import http.server, json, os
+        secret_key = open(os.environ['APP_SECRET_KEY_FILE']).read().strip()
+        class Handler(http.server.BaseHTTPRequestHandler):
+          def do_GET(self):
+            body = json.dumps({
+              'path': self.path,
+              'db': f"{os.environ['DB_USER']}@{os.environ['DB_HOST']}:{os.environ['DB_PORT']}/{os.environ['DB_NAME']}",
+              'db_password_loaded': os.path.exists(os.environ['DB_PASSWORD_FILE']),
+              'secret_key_loaded': bool(secret_key),
+            }).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(body)
+        http.server.ThreadingHTTPServer(('', 5000), Handler).serve_forever()
+    # reachable by other services (e.g. web) but not published
+    expose: ["5000"]
+    environment:
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-app}
+      DB_USER: ${DB_USER:-app}
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      APP_SECRET_KEY_FILE: /run/secrets/app_secret_key
+    depends_on:
+      db:
+        condition: service_healthy
+        # the database is optional (see the `local-db` profile)
+        required: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/healthz', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    mem_limit: ${API_MEMORY_LIMIT:-256m}
+    secrets:
+      # kubernetes names can't contain `_`, `target` controls the in-container path (/run/secrets/<target>)
+      - source: db-password
+        target: db_password
+      - source: app-secret-key
+        target: app_secret_key
+    networks: [frontend, backend]
+
+  # only started with `--profile local-db`, otherwise point DB_HOST at an external database
+  db:
+    image: postgres:16-alpine
+    profiles: [local-db]
+    environment:
+      POSTGRES_DB: ${DB_NAME:-app}
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # `$$` escapes `$` so the variables are expanded in the container, not by compose
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    secrets:
+      - source: db-password
+        target: db_password
+    networks: [backend]
+
+volumes:
+  # a persistent volume claim is created for this volume
+  db-data:
+    x-kubernetes:
+      size: 1Gi
+      class: local-path
+
+configs:
+  # a configmap is created for this config
+  web-conf:
+    # NOTE: inline `content` configs are not supported by docker compose for read_only services
+    file: ./web.conf
+
+# networks are accepted for docker compose but ignored by kube-compose,
+#  all services in the namespace can reach each other by name
+networks:
+  frontend:
+  backend:
+    internal: true
+
+secrets:
+  # a secret is created for each of these from the file contents
+  db-password:
+    file: ./secrets/db_password
+  app-secret-key:
+    file: ./secrets/app_secret_key
