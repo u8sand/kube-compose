@@ -14,9 +14,13 @@ dependencies = [
     "ruamel-yaml (>=0.18.14,<0.19.0)"
 ]
 
-[tool.poetry.scripts]
-kube-compose = 'kube_compose.__main__:cli'
+[project.scripts]
+kube-compose = "kube_compose.__main__:cli"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.13.7,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# flat layout (kube_compose/ at the repo root rather than src/kube_compose/)
+module-root = ""
