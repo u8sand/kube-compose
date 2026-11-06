@@ -27,6 +27,6 @@ def template(*, helm, name, context, namespace, docker_compose_config_raw, **_):
     'template',
     name,
     utils.helm_chart,
-    '-f', '-', '--validate=false',
+    '-f', '-',
   ], input=docker_compose_config_raw)))
   return output
