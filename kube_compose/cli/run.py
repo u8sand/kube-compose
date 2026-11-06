@@ -1,8 +1,22 @@
 import json
+import time
 import uuid
 import click
 from kube_compose import utils
 from kube_compose.cli import cli
+
+def _wait_for_container_state(kubectl_base, name, *, terminated=False, timeout=60):
+  deadline = time.monotonic() + timeout
+  while time.monotonic() < deadline:
+    status = json.loads(utils.check_output([
+      *kubectl_base, 'get', 'pod', name, '-o', 'json',
+    ])).get('status', {})
+    container_statuses = status.get('containerStatuses', [])
+    state = container_statuses[0].get('state', {}) if container_statuses else {}
+    if 'terminated' in state or (not terminated and 'running' in state):
+      return state
+    time.sleep(0.1)
+  raise click.ClickException(f'timed out waiting for pod/{name} container state')
 
 @cli.command(context_settings={"ignore_unknown_options": True})
 @utils.require_binaries(kubectl='kubectl')
@@ -63,17 +77,47 @@ def run(*, service, args, stdin, tty, context, namespace, docker_compose_config,
         }
       )
   #
-  utils.run([
+  kubectl_base = [
     *kubectl,
       *(['--context', context] if context else []),
       *(['-n', namespace] if namespace else []),
+  ]
+  utils.run([
+      *kubectl_base,
       'run',
       name,
-      '--attach',
-      '--rm',
-      *(('-i',) if stdin else tuple()),
-      *(('-t',) if tty else tuple()),
+      '--restart=Never',
       f"--image={service_config['image']}",
       '--overrides', json.dumps(overrides),
       *(('--command', '--', *map(utils.k8s_escape, args)) if args else tuple()),
   ])
+  try:
+    state = _wait_for_container_state(kubectl_base, name)
+    if stdin or tty:
+      if 'terminated' in state:
+        utils.run([*kubectl_base, 'logs', name], check=False)
+      else:
+        attach_returncode = utils.run([
+          *kubectl_base, 'attach', name,
+          *(('-i',) if stdin else tuple()),
+          *(('-t',) if tty else tuple()),
+        ], check=False)
+        # The container can finish between observing it running and attaching to it.
+        if attach_returncode:
+          utils.run([*kubectl_base, 'logs', name], check=False)
+    else:
+      utils.run([
+        *kubectl_base, 'logs',
+        *(('-f',) if 'running' in state else tuple()),
+        name,
+      ])
+
+    state = _wait_for_container_state(kubectl_base, name, terminated=True)
+    if state['terminated'].get('exitCode'):
+      raise click.exceptions.Exit(state['terminated']['exitCode'])
+  finally:
+    utils.run([
+      *kubectl_base, 'delete', 'pod', name,
+      '--ignore-not-found=true',
+      '--wait=false',
+    ], check=False)

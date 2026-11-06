@@ -32,10 +32,11 @@ def require_group_config(fn):
   return functools.update_wrapper(wrapper, fn)
 
 @click.pass_context
-def run(ctx: click.Context, *args, input=None, **kwargs):
+def run(ctx: click.Context, *args, input=None, check=True, **kwargs):
   ''' Similar to subprocess.run but
   1. forward Ctrl+C
-  2. exit click application with exitcode of the process
+  2. exit click application with exitcode of the process (unless check=False)
+  3. return the process exitcode
   '''
   import signal
   import subprocess
@@ -53,8 +54,9 @@ def run(ctx: click.Context, *args, input=None, **kwargs):
       p.kill()
       p.wait()
       raise
-  if p.returncode != 0:
+  if check and p.returncode != 0:
     ctx.exit(p.returncode)
+  return p.returncode
 
 @click.pass_context
 def check_output(ctx: click.Context, *args, **kwargs):
