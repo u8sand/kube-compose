@@ -6,7 +6,7 @@ from kube_compose.cli.configmap import configmap
 
 def create_configmap_spec(*, configmap, docker_compose_path, docker_compose_config, **_):
   configmap_specs = []
-  for config, config_config in ([(config, docker_compose_config['configs'][configmap],)] if configmap is not None else docker_compose_config.get('configs', {}).items()):
+  for config, config_config in ([(configmap, docker_compose_config['configs'][configmap],)] if configmap is not None else docker_compose_config.get('configs', {}).items()):
     config_ext_config = config_config.get('x-kubernetes', {})
     configmap_spec = {
       'apiVersion': 'v1',

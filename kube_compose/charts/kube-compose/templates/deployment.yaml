@@ -20,12 +20,30 @@ env:
 {{- define "ports" -}}
 ports:
 - null
+{{- $seen := dict }}
 {{- range $portIndex, $port := .service.ports | default list }}
-- name: {{ lower $port.protocol }}-{{ $port.target }}
+{{- $portName := printf "%s-%v" (lower ($port.protocol | default "tcp")) $port.target }}
+{{- if not (hasKey $seen $portName) }}
+{{- $_ := set $seen $portName true }}
+- name: {{ $portName }}
   containerPort: {{ $port.target }}
-  protocol: {{ upper $port.protocol }}
+  protocol: {{ upper ($port.protocol | default "tcp") }}
   x_kubernetes: {{ index $port "x-kubernetes" | default dict | toJson }}
-{{- end -}}
+{{- end }}
+{{- end }}
+{{- /* `expose` ports are reachable by other services but not published, i.e. a Service port without ingress */}}
+{{- range $expose := .service.expose | default list }}
+{{- $parts := splitList "/" (toString $expose) }}
+{{- $protocol := ternary (last $parts) "tcp" (gt (len $parts) 1) }}
+{{- $portName := printf "%s-%s" (lower $protocol) (first $parts) }}
+{{- if and (regexMatch "^[0-9]+$" (first $parts)) (not (hasKey $seen $portName)) }}
+{{- $_ := set $seen $portName true }}
+- name: {{ $portName }}
+  containerPort: {{ first $parts }}
+  protocol: {{ upper $protocol }}
+  x_kubernetes: {}
+{{- end }}
+{{- end }}
 {{- end -}}
 
 {{- define "volumes" -}}
@@ -57,7 +75,173 @@ configs:
 {{- end }}
 {{- end -}}
 
+{{- define "tmpfs" -}}
+tmpfs:
+- null
+{{- $tmpfs := .service.tmpfs | default list }}
+{{- if kindIs "string" $tmpfs }}
+{{- $tmpfs = list $tmpfs }}
+{{- end }}
+{{- range $index, $mount := $tmpfs }}
+{{- $parts := splitList ":" $mount }}
+- name: tmpfs-{{ $index }}
+  mountPath: {{ first $parts | toJson }}
+  {{- /* uid/gid/mode have no emptyDir equivalent (emptyDir is world-writable), only size is mapped */}}
+  {{- range $option := splitList "," (join ":" (rest $parts)) }}
+  {{- if hasPrefix "size=" $option }}
+  {{- $size := trimPrefix "size=" $option }}
+  {{- $num := regexFind "^[0-9]+" $size }}
+  {{- $unit := upper (trimSuffix "b" (trimSuffix "B" (trimPrefix $num $size))) }}
+  sizeLimit: {{ ternary (printf "%s%si" $num $unit) $num (has $unit (list "K" "M" "G" "T")) | toJson }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end -}}
+
+{{- define "secrets" -}}
+secrets:
+- null
+{{- range $index, $secret := .service.secrets | default list }}
+{{- $source := "" }}
+{{- $target := "" }}
+{{- if kindIs "string" $secret }}
+{{- $source = $secret }}
+{{- else }}
+{{- $source = $secret.source }}
+{{- $target = $secret.target | default "" }}
+{{- end }}
+{{- $target = $target | default $source }}
+{{- if not (hasPrefix "/" $target) }}
+{{- $target = printf "/run/secrets/%s" $target }}
+{{- end }}
+- name: secret-{{ $index }}
+  secretName: {{ $source }}
+  mountPath: {{ $target | toJson }}
+{{- end }}
+{{- end -}}
+
+{{- /* convert a compose duration (e.g. 1m30s, 500ms) to whole seconds (rounded up) */}}
+{{- define "seconds" -}}
+{{- $total := 0.0 }}
+{{- $units := dict "h" 3600.0 "m" 60.0 "s" 1.0 "ms" 0.001 "us" 0.000001 "ns" 0.000000001 }}
+{{- range $part := regexFindAll "[0-9.]+(ns|us|ms|s|m|h)" (toString .) -1 }}
+{{- $num := regexFind "^[0-9.]+" $part }}
+{{- $total = addf $total (mulf (float64 $num) (get $units (trimPrefix $num $part))) }}
+{{- end }}
+{{- ceil $total | int }}
+{{- end -}}
+
+{{- /* compose healthcheck => readinessProbe
+  NOTE: docker doesn't restart unhealthy containers, so we intentionally do not map it to a livenessProbe */}}
+{{- define "probe" -}}
+{{- $healthcheck := .service.healthcheck | default dict }}
+{{- $test := $healthcheck.test | default list }}
+{{- if kindIs "string" $test }}
+{{- $test = list "CMD-SHELL" $test }}
+{{- end }}
+{{- if and $test (not $healthcheck.disable) (has (first $test) (list "CMD" "CMD-SHELL")) }}
+{{- $cmd := rest $test }}
+{{- if eq (first $test) "CMD-SHELL" }}
+{{- $cmd = list "/bin/sh" "-c" (join " " $cmd) }}
+{{- end }}
+{{- $command := list }}
+{{- range $arg := $cmd }}
+{{- $command = append $command (toString $arg | replace "$$" "$") }}
+{{- end }}
+probe:
+  exec:
+    command: {{ $command | toJson }}
+  periodSeconds: {{ max 1 (include "seconds" ($healthcheck.interval | default "30s") | int) }}
+  timeoutSeconds: {{ max 1 (include "seconds" ($healthcheck.timeout | default "30s") | int) }}
+  failureThreshold: {{ $healthcheck.retries | default 3 | int }}
+{{- end }}
+{{- end -}}
+
+{{- define "securityContext" -}}
+{{- $securityContext := dict }}
+{{- $user := splitList ":" (.service.user | default "" | toString) }}
+{{- if regexMatch "^[0-9]+$" (first $user) }}
+{{- $_ := set $securityContext "runAsUser" (first $user | int64) }}
+{{- end }}
+{{- if and (gt (len $user) 1) (regexMatch "^[0-9]+$" (last $user)) }}
+{{- $_ := set $securityContext "runAsGroup" (last $user | int64) }}
+{{- end }}
+{{- if .service.privileged }}
+{{- $_ := set $securityContext "privileged" true }}
+{{- end }}
+{{- if .service.read_only }}
+{{- $_ := set $securityContext "readOnlyRootFilesystem" true }}
+{{- end }}
+{{- range $opt := .service.security_opt | default list }}
+{{- if has $opt (list "no-new-privileges" "no-new-privileges:true" "no-new-privileges=true") }}
+{{- $_ := set $securityContext "allowPrivilegeEscalation" false }}
+{{- end }}
+{{- end }}
+{{- $capabilities := dict }}
+{{- range $key, $caps := dict "drop" (.service.cap_drop | default list) "add" (.service.cap_add | default list) }}
+{{- if $caps }}
+{{- $list := list }}
+{{- range $cap := $caps }}
+{{- $list = append $list (trimPrefix "CAP_" (upper $cap)) }}
+{{- end }}
+{{- $_ := set $capabilities $key $list }}
+{{- end }}
+{{- end }}
+{{- if $capabilities }}
+{{- $_ := set $securityContext "capabilities" $capabilities }}
+{{- end }}
+securityContext: {{ $securityContext | toJson }}
+{{- end -}}
+
+{{- define "resources" -}}
+{{- $limits := dict }}
+{{- $requests := dict }}
+{{- if .service.cpus }}
+{{- $_ := set $limits "cpu" (toString .service.cpus) }}
+{{- end }}
+{{- if .service.mem_limit }}
+{{- $_ := set $limits "memory" (printf "%d" (int64 .service.mem_limit)) }}
+{{- end }}
+{{- if .service.mem_reservation }}
+{{- $_ := set $requests "memory" (printf "%d" (int64 .service.mem_reservation)) }}
+{{- end }}
+{{- $deployResources := (.service.deploy | default dict).resources | default dict }}
+{{- range $key, $target := dict "limits" $limits "reservations" $requests }}
+{{- with index $deployResources $key }}
+{{- if .cpus }}
+{{- $_ := set $target "cpu" (toString .cpus) }}
+{{- end }}
+{{- if .memory }}
+{{- $_ := set $target "memory" (printf "%d" (int64 .memory)) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $resources := dict }}
+{{- if $limits }}
+{{- $_ := set $resources "limits" $limits }}
+{{- end }}
+{{- if $requests }}
+{{- $_ := set $resources "requests" $requests }}
+{{- end }}
+resources: {{ $resources | toJson }}
+{{- end -}}
+
+{{- define "nodeSelector" -}}
+{{- $nodeSelector := deepCopy (.x_kubernetes.nodeSelector | default dict) }}
+{{- if .service.platform }}
+{{- $platform := splitList "/" .service.platform }}
+{{- $_ := set $nodeSelector "kubernetes.io/os" (first $platform) }}
+{{- if gt (len $platform) 1 }}
+{{- $_ := set $nodeSelector "kubernetes.io/arch" (index $platform 1) }}
+{{- end }}
+{{- end }}
+nodeSelector: {{ $nodeSelector | toJson }}
+{{- end -}}
+
 {{- define "template" -}}
+{{- $securityContext := (include "securityContext" . | fromYaml).securityContext }}
+{{- $resources := (include "resources" . | fromYaml).resources }}
+{{- $nodeSelector := (include "nodeSelector" . | fromYaml).nodeSelector }}
 metadata:
   labels:
     app.kubernetes.io/name: {{ .name }}
@@ -88,13 +272,23 @@ spec:
     env:
 {{ toYaml .env | indent 8 }}
     {{- end }}
-    {{- if or .volumes .configs }}
+    {{- if or .volumes .configs .tmpfs .secrets }}
     volumeMounts:
     {{- if .volumes }}
 {{ toYaml .volumes | indent 8 }}
     {{- end }}
     {{- if .configs }}
 {{ toYaml .configs | indent 8 }}
+    {{- end }}
+    {{- range $mount := .tmpfs }}
+        - name: {{ $mount.name }}
+          mountPath: {{ $mount.mountPath | toJson }}
+    {{- end }}
+    {{- range $secret := .secrets }}
+        - name: {{ $secret.name }}
+          mountPath: {{ $secret.mountPath | toJson }}
+          subPath: content
+          readOnly: true
     {{- end }}
     {{- end }}
     {{- if .ports }}
@@ -107,29 +301,20 @@ spec:
 {{- end }}
 {{- end }}
     {{- end }}
-    {{- if (.service.deploy | default dict).resources }}
-    resources:
-      {{- if .service.deploy.resources.limits }}
-      limits:
-        {{- if .service.deploy.resources.limits.cpus }}
-        cpu: {{ .service.deploy.resources.limits.cpus }}
-        {{- end }}
-        {{- if .service.deploy.resources.limits.memory }}
-        memory: {{ div (div .service.deploy.resources.limits.memory 1024) 1024 }}Mi
-        {{- end }}
-      {{- end }}
-      {{- if .service.deploy.resources.reservations }}
-      requests:
-        {{- if .service.deploy.resources.reservations.cpus }}
-        cpu: {{ .service.deploy.resources.reservations.cpus }}
-        {{- end }}
-        {{- if .service.deploy.resources.reservations.memory }}
-        memory: {{ div (div .service.deploy.resources.reservations.memory 1024) 1024 }}Mi
-        {{- end }}
-      {{- end }}
+    {{- with (include "probe" . | fromYaml).probe }}
+    readinessProbe: {{ toYaml . | nindent 6 }}
+    {{- end }}
+    {{- if $securityContext }}
+    securityContext: {{ toYaml $securityContext | nindent 6 }}
+    {{- end }}
+    {{- if $resources }}
+    resources: {{ toYaml $resources | nindent 6 }}
     {{- end }}
   {{- if .x_kubernetes.priorityClassName }}
   priorityClassName: {{ .x_kubernetes.priorityClassName | toJson }}
+  {{- end }}
+  {{- if $nodeSelector }}
+  nodeSelector: {{ toYaml $nodeSelector | nindent 4 }}
   {{- end }}
   dnsPolicy: {{ .x_kubernetes.dnsPolicy | default "ClusterFirst" }}
   {{- if .x_kubernetes.restartPolicy }}
@@ -148,7 +333,7 @@ spec:
   {{- if .x_kubernetes.serviceAccountName }}
   serviceAccountName: {{ .x_kubernetes.serviceAccountName }}
   {{- end }}
-  {{- if or .volumes .configs }}
+  {{- if or .volumes .configs .tmpfs .secrets }}
   volumes:
   {{- if .volumes }}
   {{- range $vol := .service.volumes }}
@@ -172,6 +357,19 @@ spec:
       name: {{ $volName }}
   {{- end }}
   {{- end }}
+  {{- range $mount := .tmpfs }}
+  - name: {{ $mount.name }}
+    emptyDir:
+      medium: Memory
+      {{- if $mount.sizeLimit }}
+      sizeLimit: {{ $mount.sizeLimit | toJson }}
+      {{- end }}
+  {{- end }}
+  {{- range $secret := .secrets }}
+  - name: {{ $secret.name }}
+    secret:
+      secretName: {{ $secret.secretName }}
+  {{- end }}
   {{- end }}
 {{- end -}}
 
@@ -184,7 +382,9 @@ spec:
 {{- $env := slice (index ((include "env" .) | fromYaml) "env") 1 }}
 {{- $volumes := slice (index ((include "volumes" .) | fromYaml) "volumes") 1 }}
 {{- $configs := slice (index ((include "configs" .) | fromYaml) "configs") 1 }}
-{{ with merge . (dict "x_kubernetes" $x_kubernetes "ports" $ports "env" $env "volumes" $volumes "configs" $configs) }}
+{{- $tmpfs := slice (index ((include "tmpfs" .) | fromYaml) "tmpfs") 1 }}
+{{- $secrets := slice (index ((include "secrets" .) | fromYaml) "secrets") 1 }}
+{{ with merge . (dict "x_kubernetes" $x_kubernetes "ports" $ports "env" $env "volumes" $volumes "configs" $configs "tmpfs" $tmpfs "secrets" $secrets) }}
 ---
 {{- if eq ($x_kubernetes.cron | default "") "" }}
 apiVersion: apps/v1
@@ -215,7 +415,8 @@ spec:
   template:
 {{ toYaml ((include "template" .) | fromYaml) | indent 4 }}
 
-{{- if $ports }}
+{{- /* a Service is always created so the compose service name resolves in DNS like it would on a compose network,
+  services without ports get a headless Service (DNS resolves directly to the pod IPs, so any port is reachable) */}}
 ---
 apiVersion: v1
 kind: Service
@@ -232,6 +433,10 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/name: {{ $name }}
+  {{- if $ports }}
+  {{- if $x_kubernetes.serviceType }}
+  type: {{ $x_kubernetes.serviceType }}
+  {{- end }}
   ports:
 {{- range $port := $ports }}
     - name: {{ $port.name }}
@@ -239,9 +444,12 @@ spec:
       port: {{ $port.containerPort }}
       targetPort: {{ $port.containerPort }}
 {{- end }}
+  {{- else }}
+  clusterIP: None
+  {{- end }}
 
 {{- range $port := $ports }}
-{{- if or $port.x_kubernetes $port.x_kubernetes }}
+{{- if $port.x_kubernetes }}
 {{- $portLabels := merge ($port.x_kubernetes.labels | default dict) ($x_kubernetes.labels | default dict) }}
 {{- $portAnnotations := merge ($port.x_kubernetes.annotations | default dict) ($x_kubernetes.annotations | default dict) }}
 ---
@@ -265,7 +473,6 @@ spec:
       protocol: {{ $port.protocol }}
       port: {{ $port.containerPort }}
       targetPort: {{ $port.containerPort }}
-{{- end }}
 {{- end }}
 {{- end }}
 

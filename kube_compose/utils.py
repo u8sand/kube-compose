@@ -1,3 +1,4 @@
+import re
 import click
 import pathlib
 import functools
@@ -98,8 +99,33 @@ def echo_table_via_pager(records):
 
 @require_group_config
 def locate_docker_compose_path(*, file, **_):
-  docker_compose_path = pathlib.Path(file) if file else pathlib_coalesce('docker-compose.yaml', 'docker-compose.yml')
+  docker_compose_path = pathlib.Path(file) if file else pathlib_coalesce('compose.yaml', 'compose.yml', 'docker-compose.yaml', 'docker-compose.yml')
   return docker_compose_path
+
+@require_group_config
+def locate_profiles(*, profiles=(), **_):
+  return tuple(profiles or ())
+
+# volume & config names are also used as pod volume names, so they must be DNS-1123 labels
+#  secrets are only used as object names, so DNS-1123 subdomains are acceptable
+_dns1123_label = r'[a-z0-9]([-a-z0-9]*[a-z0-9])?'
+_name_rules = {
+  'volumes': (re.compile(rf'^{_dns1123_label}$'), 63, "lowercase alphanumeric characters or '-'"),
+  'configs': (re.compile(rf'^{_dns1123_label}$'), 63, "lowercase alphanumeric characters or '-'"),
+  'secrets': (re.compile(rf'^{_dns1123_label}(\.{_dns1123_label})*$'), 253, "lowercase alphanumeric characters, '-' or '.'"),
+}
+
+def validate_resource_names(docker_compose_config):
+  ''' Compose allows names (e.g. `postgres_data`) which aren't valid kubernetes object names
+  '''
+  errors = [
+    f"  {section}.{name}: must be at most {max_len} characters of {allowed}, starting and ending with an alphanumeric character"
+    for section, (pattern, max_len, allowed) in _name_rules.items()
+    for name in (docker_compose_config.get(section) or {})
+    if len(name) > max_len or not pattern.match(name)
+  ]
+  if errors:
+    raise click.ClickException('\n'.join(['invalid kubernetes resource name(s), please rename them in the compose file:', *errors]))
 
 def require_kube_compose_release(fn):
   @functools.wraps(fn)
@@ -107,8 +133,16 @@ def require_kube_compose_release(fn):
   def wrapper(*, docker_compose, **kwargs):
     import yaml
     docker_compose_path = locate_docker_compose_path()
-    docker_compose_config_raw = check_output([*docker_compose, '-f', str(docker_compose_path), 'config', '--no-path-resolution'])
+    profiles = locate_profiles()
+    docker_compose_config_raw = check_output([
+      *docker_compose,
+      *[arg for profile in profiles for arg in ('--profile', profile)],
+      '-f', str(docker_compose_path), 'config', '--no-path-resolution'
+    ])
+    # NOTE: `docker compose config` already omits services (and their volumes) not enabled by the
+    #  active profiles (--profile or COMPOSE_PROFILES), so nothing downstream needs to filter on profiles
     docker_compose_config = yaml.safe_load(docker_compose_config_raw)
+    validate_resource_names(docker_compose_config)
     if 'x-kubernetes' not in docker_compose_config or not docker_compose_config.get('name'):
       raise click.ClickException('top-level `x-kubernetes` map with release `name` is required')
     release_config = docker_compose_config['x-kubernetes']

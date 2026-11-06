@@ -12,8 +12,10 @@ def up(*, helm, kubectl, name, context, namespace, docker_compose_config_raw, de
   '''
   from kube_compose.cli.volume.create import create as volume_create
   from kube_compose.cli.configmap.create import create as configmap_create
+  from kube_compose.cli.secret.create import create as secret_create
   volume_create(volume=None)
   configmap_create(configmap=None)
+  secret_create(secret=None)
   if subprocess.call([
     *helm,
     *(['--kube-context', context] if context else []),

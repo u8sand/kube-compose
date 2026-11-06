@@ -12,7 +12,7 @@ def init():
   try:
     docker_compose_path = utils.locate_docker_compose_path()
   except FileNotFoundError:
-    docker_compose_path = pathlib.Path('docker-compose.yaml')
+    docker_compose_path = pathlib.Path('compose.yaml')
   try:
     with docker_compose_path.open('r') as fr:
       docker_compose_config = yaml.load(fr)
