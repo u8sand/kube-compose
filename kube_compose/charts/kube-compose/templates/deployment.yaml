@@ -62,6 +62,7 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ .name }}
 spec:
+  enableServiceLinks: false
   containers:
   - name: {{ .name }}
     image: {{ .service.image | toJson }}
